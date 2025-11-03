@@ -1,4 +1,4 @@
-/obj_dir
+/build
 *.fst
 *.fst.hier
 *.vcd
