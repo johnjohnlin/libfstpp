@@ -1,5 +1,5 @@
 #include "Vpicorv32_wrapper.h"
-#include "verilated_vcd_c.h"
+#include "verilated_fst_c.h"
 
 int main(int argc, char **argv, char **env)
 {
@@ -9,14 +9,14 @@ int main(int argc, char **argv, char **env)
 	Verilated::commandArgs(argc, argv);
 	Vpicorv32_wrapper* top = new Vpicorv32_wrapper;
 
-	// Tracing (vcd)
-	VerilatedVcdC* tfp = NULL;
-	const char* flag_vcd = Verilated::commandArgsPlusMatch("vcd");
-	if (flag_vcd && 0==strcmp(flag_vcd, "+vcd")) {
+	// Tracing (fst)
+	VerilatedFstC* tfp = NULL;
+	const char* flag_fst = Verilated::commandArgsPlusMatch("fst");
+	if (flag_fst && 0==strcmp(flag_fst, "+fst")) {
 		Verilated::traceEverOn(true);
-		tfp = new VerilatedVcdC;
+		tfp = new VerilatedFstC;
 		top->trace (tfp, 99);
-		tfp->open("testbench.vcd");
+		tfp->open("testbench.fst");
 	}
 
 	// Tracing (data bus, see showtrace.py)
