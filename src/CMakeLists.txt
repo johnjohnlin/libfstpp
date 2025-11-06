@@ -14,11 +14,25 @@ elseif (MSVC)
     add_compile_options(/W4)
 endif()
 
-# Build target benchmark1
+# build gtkwave library
+file(GLOB GTKWAVE_SRCS
+    "${CMAKE_CURRENT_SOURCE_DIR}/fstapi/gtkwave/*.c"
+)
+add_library(gtkwave STATIC ${GTKWAVE_SRCS})
+target_include_directories(gtkwave PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/fstapi)
+target_link_libraries(gtkwave PUBLIC ZLIB::ZLIB lz4)
+
+# build cpp fst library
+file(GLOB FSTAPI_SRCS
+    "${CMAKE_CURRENT_SOURCE_DIR}/fstapi/fstcpp/*.cpp"
+)
+add_library(fstapi STATIC ${FSTAPI_SRCS})
+target_include_directories(fstapi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/fstapi)
+target_link_libraries(fstapi PUBLIC ZLIB::ZLIB lz4)
+
+# Build target bench1, with cppfst and gtkwave variant
 file(GLOB_RECURSE BENCH1_SRCS
     "${CMAKE_CURRENT_SOURCE_DIR}/bench1/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/fstapi/*.cpp"
-#    "${CMAKE_CURRENT_SOURCE_DIR}/*.c"
 )
 
 add_executable(bench1 ${BENCH1_SRCS})
@@ -26,17 +40,20 @@ target_include_directories(
     bench1
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/bench1/fixed
-    ${CMAKE_CURRENT_SOURCE_DIR}/fstapi
 )
-target_link_libraries(bench1 PRIVATE ZLIB::ZLIB lz4)
+target_link_libraries(bench1 PRIVATE fstapi ZLIB::ZLIB lz4)
 
+add_executable(bench1_gtkwave ${BENCH1_SRCS})
+target_include_directories(
+    bench1_gtkwave
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/bench1/fixed
+)
+target_link_libraries(bench1_gtkwave PRIVATE gtkwave ZLIB::ZLIB lz4)
 
 # Build target benchmark2
 file(GLOB_RECURSE BENCH2_SRCS
     "${CMAKE_CURRENT_SOURCE_DIR}/bench2/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/bench2/*.cc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/fstapi/*.cpp"
-#    "${CMAKE_CURRENT_SOURCE_DIR}/*.c"
 )
 
 add_executable(bench2 ${BENCH2_SRCS})
@@ -44,9 +61,17 @@ target_include_directories(
     bench2
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/bench2/fixed
-    ${CMAKE_CURRENT_SOURCE_DIR}/fstapi
 )
-target_link_libraries(bench2 PRIVATE ZLIB::ZLIB lz4)
+target_link_libraries(bench2 PRIVATE fstapi ZLIB::ZLIB lz4)
 
+add_executable(bench2_gtkwave ${BENCH2_SRCS})
+target_include_directories(
+    bench2_gtkwave
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/bench2/fixed
+)
+target_link_libraries(bench2_gtkwave PRIVATE ZLIB::ZLIB lz4 gtkwave)
+
+# copy file for bench2 running data
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/bench2/firmware
      DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
