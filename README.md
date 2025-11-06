@@ -19,10 +19,9 @@ I have snapshot the Verilator output, and you just need to follow the standard c
 cmake -B build src -DCMAKE_BUILD_TYPE=Release
 cd build
 make -j $(nproc)
-./fixed_source 1 # FST version
-xxxx us # Program output
-./fixed_source # no FST version
-xxxx us # Program output
+* ./bench<x> 1         # cpp FST version
+* ./bench<x>_gtkwave 1 # gtkwave version
+* ./bench<x> 0         # No FST version
 ```
 
 # Reference
@@ -31,11 +30,14 @@ Please refer to the [unofficial document](https://blog.timhutt.co.uk/fst_spec/).
 
 # Profiling results
 
-CPU: Ryzen 3700X, release mode, cell is the runtime (ms).
+We collect following benchmark:
+1. bench1 [RSA256](https://github.com/yodalee/rsa256)
+2. bench2 [picorv32](https://github.com/YosysHQ/picorv32)
 
-| Mode        | Benchmark 1 |
-|:------------|------------:|
-| GtkWave FST |       213.3 |
-| This FST    |        TODO |
-| Dummy FST   |        37.3 |
-| No FST      |        11.8 |
+CPU: AMD Ryzen 9 7950X, release mode, cell is the runtime (ms).
+
+| Mode        | Benchmark 1 | Benchmark 2 |
+|:------------|------------:|------------:|
+| GtkWave FST |       163.5 |      1287.7 |
+| This FST    |        TODO |        TODO |
+| No FST      |         7.5 |        78.4 |
