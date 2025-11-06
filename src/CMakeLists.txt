@@ -34,7 +34,6 @@ target_link_libraries(bench1 PRIVATE ZLIB::ZLIB lz4)
 # Build target benchmark2
 file(GLOB_RECURSE BENCH2_SRCS
     "${CMAKE_CURRENT_SOURCE_DIR}/bench2/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/bench2/*.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/fstapi/*.cpp"
 #    "${CMAKE_CURRENT_SOURCE_DIR}/*.c"
 )
