@@ -66,7 +66,7 @@ void Writer::SetScope(
 	Hierarchy::ScopeType scopetype,
 	const string_view scopename, const string_view scopecomp
 ) {
-	CHECK(not hierearchy_finalized_);
+	CHECK(not hierarchy_finalized_);
 	StreamWriteHelper h(hierarchy_buffer_);
 	h
 	.WriteUInt(static_cast<uint8_t>(Hierarchy::ScopeControlType::eVcdScope))
@@ -77,7 +77,7 @@ void Writer::SetScope(
 }
 
 void Writer::Upscope() {
-	CHECK(not hierearchy_finalized_);
+	CHECK(not hierarchy_finalized_);
 	// TODO: shall we inline it?
 	StreamWriteHelper h(hierarchy_buffer_);
 	h.WriteUInt(static_cast<uint8_t>(Hierarchy::ScopeControlType::eVcdUpscope));
@@ -88,7 +88,7 @@ Handle Writer::CreateVar(
 	uint32_t len, const string_view name,
 	Handle alias_handle
 ) {
-	CHECK(not hierearchy_finalized_);
+	CHECK(not hierarchy_finalized_);
 	// Write hierarchy entry: type, direction, name, length, alias
 	StreamWriteHelper h(hierarchy_buffer_);
 
@@ -148,7 +148,7 @@ Handle Writer::CreateVar2(
 	uint32_t len, const string_view name, Handle alias_handle, const string_view type,
 	Hierarchy::SupplementalVarType svt, Hierarchy::SupplementalDataType sdt
 ) {
-	CHECK(not hierearchy_finalized_);
+	CHECK(not hierarchy_finalized_);
 	(void)vartype; (void)vardir; (void)len; (void)name; (void)alias_handle; (void)type; (void)svt; (void)sdt;
 	throw runtime_error("TODO");
 	return 0;
@@ -370,7 +370,7 @@ void Writer::FlushWaveData_(bool force_flush) {
 }
 
 void Writer::FinalizeHierarchy_() {
-	hierearchy_finalized_ = true;
+	hierarchy_finalized_ = true;
 }
 
 } // namespace fst

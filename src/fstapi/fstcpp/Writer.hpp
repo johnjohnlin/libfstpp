@@ -143,7 +143,7 @@ private:
 	Header header_{};
 	detail::BlackoutData blackout_data_;
 	detail::WriterWaveData wave_data_;
-	bool hierearchy_finalized_ = false;
+	bool hierarchy_finalized_ = false;
 
 	// internal helpers
 	void WriteHeader_(); // Always write header at the beginning of stream
