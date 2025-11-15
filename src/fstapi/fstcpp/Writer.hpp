@@ -100,8 +100,6 @@ public:
 
 	// Hierarchy / variable API
 	void SetScope(Hierarchy::ScopeType scopetype, const std::string_view scopename, const std::string_view scopecomp);
-	inline void SetScope(Hierarchy::ScopeType scopetype, const std::string& scopename, const std::string& scopecomp) { SetScope(scopetype, std::string_view(scopename), std::string_view(scopecomp)); }
-
 	void Upscope();
 
 	Handle CreateVar(
@@ -109,22 +107,12 @@ public:
 		uint32_t len, const std::string_view name,
 		uint32_t alias_handle
 	);
-	inline Handle CreateVar(
-		Hierarchy::VarType vartype, Hierarchy::VarDirection vardir,
-		uint32_t len, const std::string& name,
-		uint32_t alias_handle
-	) { return CreateVar(vartype, vardir, len, std::string_view(name), alias_handle); }
 
 	Handle CreateVar2(
 		Hierarchy::VarType vartype, Hierarchy::VarDirection vardir,
 		uint32_t len, const std::string_view name, uint32_t alias_handle, const std::string_view type,
 		Hierarchy::SupplementalVarType svt, Hierarchy::SupplementalDataType sdt
 	);
-	inline Handle CreateVar2(
-		Hierarchy::VarType vartype, Hierarchy::VarDirection vardir,
-		uint32_t len, const std::string& name, uint32_t alias_handle, const std::string& type,
-		Hierarchy::SupplementalVarType svt, Hierarchy::SupplementalDataType sdt
-	) { return CreateVar2(vartype, vardir, len, std::string_view(name), alias_handle, std::string_view(type), svt, sdt); }
 
 	// Waveform API
 	void EmitTimeChange(uint64_t tim);
