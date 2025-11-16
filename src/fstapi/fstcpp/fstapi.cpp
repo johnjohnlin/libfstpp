@@ -15,7 +15,7 @@ using namespace std;
 struct fstWriterContext {
 	fst::Writer writer;
 	fstWriterContext() = default;
-	explicit fstWriterContext(const char* name) : writer(name ? std::string_view(name) : std::string_view{}) {}
+	explicit fstWriterContext(const char* name) : writer(name) {}
 };
 
 extern "C" {
@@ -125,16 +125,12 @@ void fstWriterSetTimezero(fstWriterContext *ctx, int64_t tim) {
 
 void fstWriterSetVersion(fstWriterContext *ctx, const char *vers) {
 	if (not ctx) return;
-	std::string_view sv = vers ? std::string_view(vers) : std::string_view{};
-	if (sv.empty()) return;
-	ctx->writer.SetWriter(std::string(sv));
+	ctx->writer.SetWriter(vers);
 }
 
 void fstWriterSetDate(fstWriterContext *ctx, const char *dat) {
 	if (not ctx) return;
-	std::string_view sv = dat ? std::string_view(dat) : std::string_view{};
-	if (sv.empty()) return;
-	ctx->writer.SetDate(std::string(sv));
+	ctx->writer.SetDate(dat);
 }
 
 // Hierarchy related
@@ -145,9 +141,7 @@ void fstWriterSetScope(
 	const char *scopecomp
 ) {
 	if (not ctx) return;
-	std::string_view sn = scopename ? std::string_view(scopename) : std::string_view{};
-	std::string_view sc = scopecomp ? std::string_view(scopecomp) : std::string_view{};
-	ctx->writer.SetScope(static_cast<fst::Hierarchy::ScopeType>(scopetype), std::string(sn), std::string(sc));
+	ctx->writer.SetScope(static_cast<fst::Hierarchy::ScopeType>(scopetype), scopename, scopecomp);
 }
 
 void fstWriterSetUpscope(fstWriterContext *ctx) {
@@ -159,27 +153,30 @@ fstHandle fstWriterCreateVar(
 	fstWriterContext *ctx,
 	enum fstVarType vt,
 	enum fstVarDir vd,
-	uint32_t len,
+	uint32_t bitwidth,
 	const char *nam,
 	fstHandle aliasHandle
 ) {
 	if (not ctx) return 0;
-	std::string_view n = nam ? std::string_view(nam) : std::string_view{};
-	return ctx->writer.CreateVar(static_cast<fst::Hierarchy::VarType>(vt), static_cast<fst::Hierarchy::VarDirection>(vd), len, std::string(n), aliasHandle);
+	return ctx->writer.CreateVar(
+		static_cast<fst::Hierarchy::VarType>(vt),
+		static_cast<fst::Hierarchy::VarDirection>(vd),
+		bitwidth, nam, aliasHandle
+	);
 }
 
 fstHandle fstWriterCreateVar2(
 	fstWriterContext *ctx,
 	enum fstVarType vt,
 	enum fstVarDir vd,
-	uint32_t len,
+	uint32_t bitwidth,
 	const char *nam,
 	fstHandle aliasHandle,
 	const char *type,
 	enum fstSupplementalVarType svt,
 	enum fstSupplementalDataType sdt
 ) {
-	(void)ctx; (void)vt; (void)vd; (void)len; (void)nam; (void)aliasHandle; (void)type; (void)svt; (void)sdt; TODO(__func__);
+	(void)ctx; (void)vt; (void)vd; (void)bitwidth; (void)nam; (void)aliasHandle; (void)type; (void)svt; (void)sdt; TODO(__func__);
 	return 0;
 }
 
@@ -260,8 +257,9 @@ void fstWriterEmitValueChange32(
 	uint32_t bits,
 	uint32_t val
 ) {
+	(void)bits;
 	if (not ctx) return;
-	ctx->writer.EmitValueChange(handle, bits, &val);
+	ctx->writer.EmitValueChange(handle, &val);
 }
 
 void fstWriterEmitValueChange64(
@@ -270,8 +268,9 @@ void fstWriterEmitValueChange64(
 	uint32_t bits,
 	uint64_t val
 ) {
+	(void)bits;
 	if (not ctx) return;
-	ctx->writer.EmitValueChange(handle, bits, &val);
+	ctx->writer.EmitValueChange(handle, &val);
 }
 
 void fstWriterEmitValueChangeVec32(
@@ -280,8 +279,9 @@ void fstWriterEmitValueChangeVec32(
 	uint32_t bits,
 	const uint32_t *val
 ) {
+	(void)bits;
 	if (not ctx) return;
-	ctx->writer.EmitValueChange(handle, bits, val);
+	ctx->writer.EmitValueChange(handle, val);
 }
 
 void fstWriterEmitValueChangeVec64(
@@ -290,8 +290,9 @@ void fstWriterEmitValueChangeVec64(
 	uint32_t bits,
 	const uint64_t *val
 ) {
+	(void)bits;
 	if (not ctx) return;
-	ctx->writer.EmitValueChange(handle, bits, val);
+	ctx->writer.EmitValueChange(handle, val);
 }
 
 void fstWriterEmitValueChange(
@@ -299,7 +300,9 @@ void fstWriterEmitValueChange(
 	fstHandle handle,
 	const void *val
 ) {
-	(void)ctx; (void)handle; (void)val; TODO(__func__);
+	if (not ctx) return;
+	// treat val as C-string
+	ctx->writer.EmitValueChange(handle, static_cast<const char*>(val));
 }
 
 void fstWriterEmitVariableLengthValueChange(

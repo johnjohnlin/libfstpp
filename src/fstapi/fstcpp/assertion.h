@@ -26,6 +26,15 @@
 		throw std::runtime_error(e); \
 	}
 
+#define CHECK_NE(a, b) \
+	if ((a) == (b)) [[unlikely]] { \
+		std::ostringstream oss; \
+		oss << "CHECK_NE failed: " #a " == " #b << " (" << (a) << " vs. " << (b) << ")"; \
+		const auto e = oss.str(); \
+		std::cerr << e << std::endl; \
+		throw std::runtime_error(e); \
+	}
+
 #define CHECK_GT(a, b) \
 	if ((a) <= (b)) [[unlikely]] { \
 		std::ostringstream oss; \
@@ -45,4 +54,20 @@
 #  define DCHECK(a)
 #  define DCHECK_EQ(a, b)
 #  define DCHECK_GT(a, b)
+#endif
+
+// Compatibility layer for unreachable code hint
+#if defined(__cplusplus) && __cplusplus >= 202302L
+	// Prefer the standard library version if available
+	#include <utility>
+	#define UNREACHABLE std::unreachable()
+#elif defined(__GNUC__) || defined(__clang__)
+	// --- GCC / Clang ---
+	#define UNREACHABLE __builtin_unreachable()
+#elif defined(_MSC_VER)
+	// --- MSVC ---
+	#define UNREACHABLE __assume(0)
+#else
+	// --- Fallback ---
+	#define UNREACHABLE std::abort()
 #endif

@@ -23,6 +23,11 @@ class Writer;
 
 namespace detail {
 
+[[nodiscard]]
+static inline constexpr std::string_view SafeStringView(const char* str) noexcept {
+	return str ? std::string_view(str) : std::string_view{};
+}
+
 // We define WriterWaveData here for better code inlining, no forward declaration
 struct BlackoutData {
 	std::ostringstream buffer;
@@ -32,35 +37,28 @@ struct BlackoutData {
 	void EmitDumpActive(uint64_t current_timestamp, bool enable);
 };
 
-// We define WriterWaveData here for better code inlining, no forward declaration
-struct WriterWaveData {
-	std::ostringstream timestamp_data;
-	uint64_t first_timestamp;
-	uint64_t current_timestamp;
-	uint64_t timestamp_index;
-	uint64_t memory_usage;
+// We define ValueChangeData here for better code inlining, no forward declaration
+struct ValueChangeData {
+	struct VariableInfoBase;
+	std::vector<std::unique_ptr<VariableInfoBase>> variable_infos;
+	std::vector<uint64_t> timestamps;
 
-	bool IsResetState() { return timestamp_index != uint64_t(-1); }
-	void Reset() {
-		first_timestamp = uint64_t(-1);
-		timestamp_index = uint64_t(-1);
-		current_timestamp = 0;
-		timestamp_data.str("");
+	ValueChangeData();
+	~ValueChangeData();
+
+	uint64_t current_timestamp() const {
+		return timestamps.empty() ? 0 : timestamps.back();
 	}
-	void AppendTimestamp(uint64_t ts);
-	WriterWaveData() { Reset(); }
+	uint64_t first_timestamp = 0;
 };
 
 } // namespace detail
 
 class Writer {
+	friend class WriterTest;
 public:
-	Writer()
-      : main_fst_file_(std::make_unique<std::ofstream>()),
-        main_fst_stream_(*main_fst_file_) {}
-	Writer(const std::string_view name) 
-      : main_fst_file_(std::make_unique<std::ofstream>()),
-        main_fst_stream_(*main_fst_file_)  { Open(name); }
+	Writer() {}
+	Writer(const std::string_view name) { if (not name.empty()) Open(name); }
 	~Writer() { Close(); }
 
 	Writer(const Writer&) = delete;
@@ -70,10 +68,11 @@ public:
 
 	// File control
 	void Open(const std::string_view name);
-	inline void Open(const std::string& name) { Open(std::string_view(name)); }
 	void Close();
 
-	// Header manipulation
+	//////////////////////////////
+	// Header manipulation API
+	//////////////////////////////
 	const Header& GetHeader() const;
 	void SetTimecale(int8_t timescale) { header_.timescale = timescale; }
 	void SetWriter(const std::string_view writer) {
@@ -83,63 +82,99 @@ public:
 			header_.writer[len] = '\0';
 		}
 	}
-	inline void SetWriter(const std::string& writer) { SetWriter(std::string_view(writer)); }
-
 	void SetDate(const std::string_view date_str) {
 		const auto len = date_str.size();
 		CHECK_EQ(len, sizeof(header_.date)-1);
 		std::copy_n(date_str.data(), len, header_.date);
 		header_.date[len] = '\0';
 	}
+	void SetTimezero(int64_t timezero) { header_.timezero = timezero; }
+
+	//////////////////////////////
+	// Change scope API
+	//////////////////////////////
+	void SetScope(Hierarchy::ScopeType scopetype, const std::string_view scopename, const std::string_view scopecomp);
+	void Upscope();
+
+	//////////////////////////////
+	// Create variable API
+	//////////////////////////////
+	Handle CreateVar(
+		Hierarchy::VarType vartype, Hierarchy::VarDirection vardir,
+		uint32_t bitwidth, const std::string_view name,
+		uint32_t alias_handle
+	);
+	Handle CreateVar2(
+		Hierarchy::VarType vartype, Hierarchy::VarDirection vardir,
+		uint32_t bitwidth, const std::string_view name, uint32_t alias_handle, const std::string_view type,
+		Hierarchy::SupplementalVarType svt, Hierarchy::SupplementalDataType sdt
+	);
+
+	//////////////////////////////
+	// Waveform API
+	//////////////////////////////
+	void EmitTimeChange(uint64_t tim);
+	void EmitDumpActive(bool enable);
+	void EmitValueChange(Handle handle, const uint32_t *val, EncodingType encoding = EncodingType::eBinary);
+	void EmitValueChange(Handle handle, const uint64_t *val, EncodingType encoding = EncodingType::eBinary);
+	// Pass by value for small integers
+	void EmitValueChange(Handle handle, uint64_t val);
+	// Add support for C-string value changes (e.g. fst string values)
+	void EmitValueChange(Handle handle, const char *val);
+
+	//////////////////////////////
+	// Alias version
+	//////////////////////////////
+	// Constructor
+	Writer(const char* name) : Writer(detail::SafeStringView(name)) {}
+	Writer(const std::string& name) : Writer(std::string_view(name)) {}
+	// Open
+	inline void Open(const std::string& name) { Open(std::string_view(name)); }
+	// SetWriter
+	inline void SetWriter(const char* writer) { if (writer) SetWriter(std::string_view(writer)); }
+	inline void SetWriter(const std::string& writer) { SetWriter(std::string_view(writer)); }
+	// SetDate
+	inline void SetDate(const char* date_str) { if (date_str) SetDate(std::string_view(date_str)); }
 	inline void SetDate(const std::string& date_str) { SetDate(std::string_view(date_str)); }
-	void SetDate(const std::tm* d) {
-		SetDate(std::string_view(std::asctime(d)));
-	}
-	void SetDate() {
+	inline void SetDate(const std::tm* d) { SetDate(std::string_view(std::asctime(d))); }
+	inline void SetDate() {
 		// set date to now
 		std::time_t t = std::time(nullptr);
 		SetDate(std::localtime(&t));
 	}
-	void SetTimezero(int64_t timezero) { header_.timezero = timezero; }
-
-	// Hierarchy / variable API
-	void SetScope(Hierarchy::ScopeType scopetype, const std::string_view scopename, const std::string_view scopecomp);
-	void Upscope();
-
-	Handle CreateVar(
+	// CreateVar(2)
+	inline Handle CreateVar(
 		Hierarchy::VarType vartype, Hierarchy::VarDirection vardir,
-		uint32_t len, const std::string_view name,
+		uint32_t bitwidth, const char* name,
 		uint32_t alias_handle
-	);
-
-	Handle CreateVar2(
+	) {
+		CHECK_NE(name, nullptr);
+		return CreateVar(vartype, vardir, bitwidth, std::string_view(name), alias_handle);
+	}
+	inline Handle CreateVar(
 		Hierarchy::VarType vartype, Hierarchy::VarDirection vardir,
-		uint32_t len, const std::string_view name, uint32_t alias_handle, const std::string_view type,
-		Hierarchy::SupplementalVarType svt, Hierarchy::SupplementalDataType sdt
-	);
-
-	// Waveform API
-	void EmitTimeChange(uint64_t tim);
-	void EmitDumpActive(bool enable);
-	void EmitValueChange(Handle handle, uint32_t bits, const uint32_t *val);
-	void EmitValueChange(Handle handle, uint32_t bits, const uint64_t *val);
+		uint32_t bitwidth, const std::string& name,
+		uint32_t alias_handle
+	) { return CreateVar(vartype, vardir, bitwidth, std::string_view(name), alias_handle); }
+	// SetScope
+	inline void SetScope(Hierarchy::ScopeType scopetype, const std::string& scopename, const std::string& scopecomp) {
+		SetScope(scopetype, std::string_view(scopename), std::string_view(scopecomp));
+	}
+	inline void SetScope(Hierarchy::ScopeType scopetype, const char* scopename, const char* scopecomp) {
+		SetScope(scopetype, detail::SafeStringView(scopename), detail::SafeStringView(scopecomp));
+	}
 private:
-    // the testing interface
-    explicit Writer(std::ostream &external_os) : main_fst_stream_(external_os) {}
-    friend class WriterTest;
-
 	// File/memory buffers
 	// 1. For hierarchy and geometry, we do not keep the data structure, instead we just
 	//    serialize them into buffers, and compress+write them at the end of file.
 	// 2. For header, we keep the data structure in memory since it is quite small
 	// 3. For wave data, we keep a complicated data structure in memory, and flush them to file when necessary
-	std::unique_ptr<std::ofstream> main_fst_file_;
-	std::ostream &main_fst_stream_;
+	std::ofstream main_fst_file_;
 	std::ostringstream hierarchy_buffer_;
 	std::ostringstream geometry_buffer_;
 	Header header_{};
 	detail::BlackoutData blackout_data_;
-	detail::WriterWaveData wave_data_;
+	detail::ValueChangeData value_change_data_;
 	bool hierarchy_finalized_ = false;
 
 	// internal helpers
@@ -147,12 +182,21 @@ private:
 	void AppendGeometry_(); // Always append hierarchy at the end of stream
 	void AppendHierarchy_(); // Always append hierarchy at the end of stream
 	void AppendBlackout_(); // Always append hierarchy at the end of stream
-	void FlushWaveData_InitialBits_();
-	void FlushWaveData_ValudChanges_();
-	void FlushWaveData_Positinos_();
-	void FlushWaveData_Timestamps_();
-	void FlushWaveData_(bool force_flush); // Flush to main_fst_file_ directly (offseted by Header, whose space is reserved in constructor)
-	void FinalizeHierarchy_();
+	void FlushValueChangeData_InitialBits_(std::ostream &os);
+	std::vector<std::vector<char>> FlushValueChangeData_ValueChanges_ComputeWaveData_();
+	std::vector<int64_t> FlushValueChangeData_ValueChanges_UniquifyWaveData_(
+		std::vector<std::vector<char>>& data
+	);
+	void FlushValueChangeData_ValueChanges_FinalizePositionsAndWrite_(
+		std::ostream& os,
+		std::vector<std::vector<char>>& data,
+		std::vector<int64_t>& positions
+	);
+	std::vector<int64_t> FlushValueChangeData_ValueChanges_(std::ostream &os);
+	void FlushValueChangeData_Positions_(std::ostream& os, const std::vector<int64_t>& positions);
+	void FlushValueChangeData_Timestamps_(std::ostream &os);
+	void FlushValueChangeData_(); // Flush to main_fst_file_ directly
+	void FinalizeHierarchy_() { hierarchy_finalized_ = true; }
 };
 
 } // namespace fst

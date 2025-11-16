@@ -22,6 +22,13 @@ enum FileType : uint8_t {
 	eVerilogVhdl,
 };
 
+enum class EncodingType : uint8_t {
+	eBinary = 1, // 1 bit per bit to represent 0,1
+	eVerilog = 2, // 2 bits per bit to represent X,Z
+	eVhdl = 4, // 4 bits per bit to represent H,U,W,L,-,?
+};
+[[maybe_unused]] static const char* kEncodedBitToCharTable = "01xzhuwl";
+
 struct Hierarchy {
 	enum ScopeType : uint8_t {
 		eVcdModule = 0,
@@ -89,12 +96,16 @@ struct Hierarchy {
 	};
 
 	enum VarDirection : uint8_t {
-		eFstImplicit = 0,
-		eFstInput = 1,
-		eFstOutput = 2,
-		eFstInout = 3,
-		eFstBuffer = 4,
-		eFstLinkage
+		eMin = 0,
+
+		eImplicit = 0,
+		eInput = 1,
+		eOutput = 2,
+		eInout = 3,
+		eBuffer = 4,
+		eLinkage = 5,
+
+		eMax = 5,
 	};
 
 	enum SupplementalVarType : uint8_t {
@@ -105,14 +116,14 @@ struct Hierarchy {
 };
 
 struct Header {
-	uint64_t start_time = 0;
+	uint64_t start_time = uint64_t(-1);
 	uint64_t end_time = 0;
 	int64_t timezero = 0;
 	uint64_t writer_memory_use = 0;
 	uint64_t num_scopes = 0;
 	uint64_t num_vars = 0; // #CreateVar calls, including aliases
 	uint64_t num_handles = 0; // #unique handles, excluding aliases, shall be <= num_vars
-	uint64_t num_wave_data_blocks = 0;
+	uint64_t num_value_change_data_blocks = 1;
 	std::endian real_endianness = std::endian::native;
 	char writer[128] {};
 	char date[26] {};
