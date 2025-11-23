@@ -75,4 +75,22 @@ TEST_F(WriterTest, DISABLED_CreateVarAlias) {
     EXPECT_EQ(buf, expected);
 }
 
+TEST_F(WriterTest, DISABLED_CreateAliasOutOfRange) {
+    // Call CreateVar
+    EXPECT_EQ(writer->CreateVar(
+        fst::Hierarchy::VarType::eVcdWire,
+        fst::Hierarchy::VarDirection::eFstInput,
+        /*length =*/16,
+        string_view("mode"),
+        /*alias handle =*/0
+    ), 1u);
+
+    // Get the hierarchy buffer content
+    string buf = get_hierarchy_buffer();
+    // expected: Type, Direction, Name, Length, Alias Handle
+    // FIXME: in fstapi.c:2598 it writes len, zero, zero for normal variable this may be a bug
+    string expected = "\x10\x01mode\x00\x10\x00"s;
+    EXPECT_EQ(buf, expected);
+}
+
 } // namespace fst
