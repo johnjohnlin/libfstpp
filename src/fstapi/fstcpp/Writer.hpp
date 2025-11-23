@@ -55,8 +55,12 @@ struct WriterWaveData {
 
 class Writer {
 public:
-	Writer() {}
-	Writer(const std::string_view name) { Open(name); }
+	Writer()
+      : main_fst_file_(std::make_unique<std::ofstream>()),
+        main_fst_stream_(*main_fst_file_) {}
+	Writer(const std::string_view name) 
+      : main_fst_file_(std::make_unique<std::ofstream>()),
+        main_fst_stream_(*main_fst_file_)  { Open(name); }
 	~Writer() { Close(); }
 
 	Writer(const Writer&) = delete;
@@ -120,12 +124,17 @@ public:
 	void EmitValueChange(Handle handle, uint32_t bits, const uint32_t *val);
 	void EmitValueChange(Handle handle, uint32_t bits, const uint64_t *val);
 private:
+    // the testing interface
+    explicit Writer(std::ostream &external_os) : main_fst_stream_(external_os) {}
+    friend class WriterTest;
+
 	// File/memory buffers
 	// 1. For hierarchy and geometry, we do not keep the data structure, instead we just
 	//    serialize them into buffers, and compress+write them at the end of file.
 	// 2. For header, we keep the data structure in memory since it is quite small
 	// 3. For wave data, we keep a complicated data structure in memory, and flush them to file when necessary
-	std::ofstream main_fst_file_;
+	std::unique_ptr<std::ofstream> main_fst_file_;
+	std::ostream &main_fst_stream_;
 	std::ostringstream hierarchy_buffer_;
 	std::ostringstream geometry_buffer_;
 	Header header_{};

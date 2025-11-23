@@ -89,6 +89,12 @@ struct Hierarchy {
 	};
 
 	enum VarDirection : uint8_t {
+		eFstImplicit = 0,
+		eFstInput = 1,
+		eFstOutput = 2,
+		eFstInout = 3,
+		eFstBuffer = 4,
+		eFstLinkage
 	};
 
 	enum SupplementalVarType : uint8_t {

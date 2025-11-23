@@ -42,21 +42,21 @@ void WriterWaveData::AppendTimestamp(uint64_t tim) {
 } // namespace detail
 
 void Writer::Open(const string_view name) {
-	CHECK(not main_fst_file_.is_open());
-	main_fst_file_.open(string(name), ios::binary);
+	CHECK(main_fst_file_ and not main_fst_file_->is_open());
+	main_fst_file_->open(string(name), ios::binary);
 	// reserve space for header, we will write it at Close(), append geometry and hierarchy at the end
 	// wave data will be flushed in between by FlushWaveDataIfNecessary_()
-	main_fst_file_.seekp(kSharedBlockHeaderSize + HeaderInfo::total_size, ios_base::beg);
+	main_fst_stream_.seekp(kSharedBlockHeaderSize + HeaderInfo::total_size, ios_base::beg);
 }
 
 void Writer::Close() {
-	if (not main_fst_file_.is_open()) return;
+	if (not main_fst_file_ or not main_fst_file_->is_open()) return;
 	FlushWaveData_(true);
 	WriteHeader_();
 	AppendGeometry_();
 	AppendHierarchy_();
 	AppendBlackout_();
-	main_fst_file_.close();
+	main_fst_file_->close();
 }
 
 /////////////////////////////////////////
@@ -184,7 +184,7 @@ void Writer::EmitValueChange(Handle handle, uint32_t bits, const uint64_t *val) 
 // File flushing functions
 /////////////////////////////////////////
 void Writer::WriteHeader_() {
-	StreamWriteHelper h(main_fst_file_);
+	StreamWriteHelper h(main_fst_stream_);
 
 	// Finalize header fields
 	if (header_.date[0] == '\0') {
@@ -211,7 +211,7 @@ void Writer::WriteHeader_() {
 	.WriteUInt(static_cast<uint8_t>(header_.filetype))
 	.WriteUInt(header_.timezero);
 
-	DCHECK_EQ(main_fst_file_.tellp(), HeaderInfo::total_size + kSharedBlockHeaderSize);
+	DCHECK_EQ(main_fst_stream_.tellp(), HeaderInfo::total_size + kSharedBlockHeaderSize);
 };
 
 static vector<char> CompressUsingZlib(const string& uncompressed_data) {
@@ -256,7 +256,7 @@ void Writer::AppendGeometry_() {
 	vector<char> geometry_compressed_data = CompressUsingZlib(geometry_uncompressed_data);
 	const auto [selected_data, selected_size] = SelectSmaller(geometry_compressed_data, geometry_uncompressed_data);
 
-	StreamWriteHelper h(main_fst_file_);
+	StreamWriteHelper h(main_fst_stream_);
 	h
 	.Seek(0, ios_base::end)
 	// 16 is for the uncompressed_size and header_.num_handles
@@ -286,7 +286,7 @@ void Writer::AppendHierarchy_() {
 		compressed_bound
 	);
 
-	StreamWriteHelper h(main_fst_file_);
+	StreamWriteHelper h(main_fst_stream_);
 	h
 	.Seek(0, ios_base::end)
 	// +16 is for the uncompressed_size
@@ -301,8 +301,8 @@ void Writer::AppendBlackout_() {
 		return;
 	}
 	const string& blackout_data = blackout_data_.buffer.str();
-	const auto begin_of_blackout_block = main_fst_file_.tellp();
-	StreamWriteHelper h(main_fst_file_);
+	const auto begin_of_blackout_block = main_fst_stream_.tellp();
+	StreamWriteHelper h(main_fst_stream_);
 	h
 	// skip the block header
 	.Seek(kSharedBlockHeaderSize, ios_base::end)
@@ -310,7 +310,7 @@ void Writer::AppendBlackout_() {
 	.WriteLEB128(blackout_data.size())
 	.Write(blackout_data.data(), blackout_data.size());
 
-	const auto size_of_blackout_block = main_fst_file_.tellp() - begin_of_blackout_block;
+	const auto size_of_blackout_block = main_fst_stream_.tellp() - begin_of_blackout_block;
 	h
 	// go back to the beginning of the block
 	.Seek(begin_of_blackout_block, ios_base::beg)
@@ -334,7 +334,7 @@ void Writer::FlushWaveData_Timestamps_() {
 	const string& timestamp_data = wave_data_.timestamp_data.str();
 	vector<char> timestamp_compressed_data = CompressUsingZlib(timestamp_data);
 	const auto [selected_data, selected_size] = SelectSmaller(timestamp_compressed_data, timestamp_data);
-	StreamWriteHelper h(main_fst_file_);
+	StreamWriteHelper h(main_fst_stream_);
 	h
 	.Write(selected_data, selected_size)
 	.WriteUInt<uint64_t>(timestamp_data.size()) // uncompressed size
@@ -346,8 +346,8 @@ void Writer::FlushWaveData_(bool force_flush) {
 	// TODO
 	(void)force_flush;
 
-	const auto begin_of_wave_data_block = main_fst_file_.tellp();
-	StreamWriteHelper h(main_fst_file_);
+	const auto begin_of_wave_data_block = main_fst_stream_.tellp();
+	StreamWriteHelper h(main_fst_stream_);
 	h
 	// skip the block header
 	.Seek(kSharedBlockHeaderSize, ios_base::end)
@@ -361,7 +361,7 @@ void Writer::FlushWaveData_(bool force_flush) {
 	FlushWaveData_Timestamps_();
 	wave_data_.Reset();
 
-	const auto size_of_wave_data_block = main_fst_file_.tellp() - begin_of_wave_data_block;
+	const auto size_of_wave_data_block = main_fst_stream_.tellp() - begin_of_wave_data_block;
 	h
 	// go back to the beginning of the block
 	.Seek(begin_of_wave_data_block, ios_base::beg)
