@@ -81,7 +81,7 @@ TEST_F(WriterTest, DISABLED_CreateAliasOutOfRange) {
         fst::Hierarchy::VarType::eVcdWire,
         fst::Hierarchy::VarDirection::eFstInput,
         /*length =*/16,
-        string_view("mode"),
+        "mode",
         /*alias handle =*/0
     ), 1u);
 
@@ -90,6 +90,22 @@ TEST_F(WriterTest, DISABLED_CreateAliasOutOfRange) {
     // expected: Type, Direction, Name, Length, Alias Handle
     // FIXME: in fstapi.c:2598 it writes len, zero, zero for normal variable this may be a bug
     string expected = "\x10\x01mode\x00\x10\x00"s;
+    EXPECT_EQ(buf, expected);
+}
+
+TEST_F(WriterTest, Scope) {
+    // Set Scope
+    writer->SetScope(
+        fst::Hierarchy::ScopeType::eVcdModule,
+        "top",
+        "component"); // TODO: what is this?
+    writer->Upscope();
+
+    // Get the hierarchy buffer content
+    string buf = get_hierarchy_buffer();
+    // expected: Scope Type, Name, component, Upscope
+    string expected = "\xfe\x00top\x00" "component\x00" \
+                      "\xff"s;
     EXPECT_EQ(buf, expected);
 }
 
