@@ -105,3 +105,9 @@ target_link_libraries(bench2_gtkwave PRIVATE ZLIB::ZLIB lz4 gtkwave)
 # copy file for bench2 running data
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/bench2/firmware
      DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+# Build unittest
+enable_testing()
+add_executable(WriterTest test/Writer_test.cpp)
+target_link_libraries(WriterTest fstapi gtest gtest_main)
+add_test(WriterTest WriterTest)
