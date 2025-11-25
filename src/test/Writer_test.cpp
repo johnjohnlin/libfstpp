@@ -20,7 +20,7 @@ protected:
     ostringstream ss;
 };
 
-TEST_F(WriterTest, DISABLED_CreateVar) {
+TEST_F(WriterTest, CreateVar) {
     // Call CreateVar
     EXPECT_EQ(writer->CreateVar(
         fst::Hierarchy::VarType::eVcdWire,
@@ -48,7 +48,7 @@ TEST_F(WriterTest, DISABLED_CreateVar) {
     EXPECT_EQ(buf, expected);
 }
 
-TEST_F(WriterTest, DISABLED_CreateVarAlias) {
+TEST_F(WriterTest, CreateVarAlias) {
     // Call CreateVar
     EXPECT_EQ(writer->CreateVar(
         fst::Hierarchy::VarType::eVcdWire,
@@ -75,7 +75,7 @@ TEST_F(WriterTest, DISABLED_CreateVarAlias) {
     EXPECT_EQ(buf, expected);
 }
 
-TEST_F(WriterTest, DISABLED_CreateAliasOutOfRange) {
+TEST_F(WriterTest, CreateAliasOutOfRange) {
     // Call CreateVar
     EXPECT_EQ(writer->CreateVar(
         fst::Hierarchy::VarType::eVcdWire,

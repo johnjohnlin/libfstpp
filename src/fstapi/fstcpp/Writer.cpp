@@ -108,30 +108,24 @@ Handle Writer::CreateVar(
 		default:
 			break;
 	}
-	if (alias_handle > header_.num_handles) {
-		// sanitize
-		alias_handle = 0;
-	}
-	const bool is_alias = alias_handle != 0;
-	// This counter is incremented whether alias or non-alias
+
+	// Only treat as alias if alias_handle is valid (nonzero and <= num_handles)
+	const bool is_alias = (alias_handle != 0 && alias_handle <= header_.num_handles);
 	++header_.num_vars;
+
+	Handle handle_to_return = alias_handle;
 	if (not is_alias) {
-		// This counter is incremented only for non-alias variables
 		++header_.num_handles;
-		alias_handle = header_.num_handles;
-	}
+		handle_to_return = header_.num_handles;
 
-	h
-	.WriteUInt(static_cast<uint8_t>(vartype))
-	.WriteUInt(static_cast<uint8_t>(vardir))
-	.WriteString(name)
-	.WriteLEB128(len)
-	.WriteLEB128(alias_handle);
+        h
+        .WriteUInt(static_cast<uint8_t>(vartype))
+        .WriteUInt(static_cast<uint8_t>(vardir))
+        .WriteString(name)
+        .WriteLEB128(len)
+        .WriteLEB128(alias_handle);
 
-	// If alias_handle == 0, we must allocate geom/valpos/curval entries and create a new handle
-	if (not is_alias) {
 		StreamWriteHelper g(geometry_buffer_);
-		// I don't know why the original C implementation encode len again
 		const uint32_t geom_len = (
 			len == 0 ? uint32_t(-1) :
 			is_real  ? uint32_t(0) :
@@ -140,7 +134,7 @@ Handle Writer::CreateVar(
 		g.WriteLEB128(geom_len);
 	}
 
-	return alias_handle;
+	return handle_to_return;
 }
 
 Handle Writer::CreateVar2(
