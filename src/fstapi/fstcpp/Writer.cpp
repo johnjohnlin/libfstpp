@@ -117,22 +117,22 @@ Handle Writer::CreateVar(
 	if (not is_alias) {
 		++header_.num_handles;
 		handle_to_return = header_.num_handles;
+    }
 
-        h
-        .WriteUInt(static_cast<uint8_t>(vartype))
-        .WriteUInt(static_cast<uint8_t>(vardir))
-        .WriteString(name)
-        .WriteLEB128(len)
-        .WriteLEB128(alias_handle);
+    h
+    .WriteUInt(static_cast<uint8_t>(vartype))
+    .WriteUInt(static_cast<uint8_t>(vardir))
+    .WriteString(name)
+    .WriteLEB128(len)
+    .WriteLEB128(alias_handle);
 
-		StreamWriteHelper g(geometry_buffer_);
-		const uint32_t geom_len = (
-			len == 0 ? uint32_t(-1) :
-			is_real  ? uint32_t(0) :
-			           len
-		);
+    StreamWriteHelper g(geometry_buffer_);
+    const uint32_t geom_len = (
+        len == 0 ? uint32_t(-1) :
+        is_real  ? uint32_t(0) :
+                    len
+    );
 		g.WriteLEB128(geom_len);
-	}
 
 	return handle_to_return;
 }

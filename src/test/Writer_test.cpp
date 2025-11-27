@@ -62,8 +62,8 @@ TEST_F(WriterTest, CreateVarAlias) {
     EXPECT_EQ(writer->CreateVar(
         fst::Hierarchy::VarType::eVcdPort,
         fst::Hierarchy::VarDirection::eFstOutput,
-        /*length =*/0xdddd, // don't care
-        "whatever",
+        /*length =*/0xd, // don't care
+        "aliasclk",
         /*alias handle =*/1
     ), 1u);
 
@@ -71,7 +71,8 @@ TEST_F(WriterTest, CreateVarAlias) {
     string buf = get_hierarchy_buffer();
     // expected: Type, Direction, Name, Length, Alias Handle
     // FIXME: in fstapi.c:2598 it writes len, zero, zero for normal variable this may be a bug
-    string expected = "\x10\x01" "clk\x00\x01\x00"s;
+    string expected = "\x10\x01" "clk\x00\x01\x00"s \
+                      "\x12\x02" "aliasclk\x00\x0d\x01"s;
     EXPECT_EQ(buf, expected);
 }
 
