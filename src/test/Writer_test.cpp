@@ -110,4 +110,22 @@ TEST_F(WriterTest, Scope) {
     EXPECT_EQ(buf, expected);
 }
 
+TEST_F(WriterTest, CreateVarVcdReal) {
+    // Call CreateVar with eVcdReal
+    EXPECT_EQ(writer->CreateVar(
+        fst::Hierarchy::VarType::eVcdReal,
+        fst::Hierarchy::VarDirection::eFstInput,
+        /*length =*/0, // length is ignored for real
+        "real_val",
+        /*alias handle =*/0
+    ), 1u);
+
+    // Get the hierarchy buffer content
+    string buf = get_hierarchy_buffer();
+    // For eVcdReal, length should be encoded as 8 bytes (64 bits)
+    // Type: 0x1a, Direction: 0x01, Name: "real_val", Length: 0x08,  Alias: 0x00
+    string expected = "\x03\x01real_val\x00\x08\x00"s;
+    EXPECT_EQ(buf, expected);
+}
+
 } // namespace fst
