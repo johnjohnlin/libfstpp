@@ -20,7 +20,7 @@ protected:
     ostringstream ss;
 };
 
-TEST_F(WriterTest, DISABLED_CreateVar) {
+TEST_F(WriterTest, CreateVar) {
     // Call CreateVar
     EXPECT_EQ(writer->CreateVar(
         fst::Hierarchy::VarType::eVcdWire,
@@ -48,7 +48,7 @@ TEST_F(WriterTest, DISABLED_CreateVar) {
     EXPECT_EQ(buf, expected);
 }
 
-TEST_F(WriterTest, DISABLED_CreateVarAlias) {
+TEST_F(WriterTest, CreateVarAlias) {
     // Call CreateVar
     EXPECT_EQ(writer->CreateVar(
         fst::Hierarchy::VarType::eVcdWire,
@@ -62,8 +62,8 @@ TEST_F(WriterTest, DISABLED_CreateVarAlias) {
     EXPECT_EQ(writer->CreateVar(
         fst::Hierarchy::VarType::eVcdPort,
         fst::Hierarchy::VarDirection::eFstOutput,
-        /*length =*/0xdddd, // don't care
-        "whatever",
+        /*length =*/0xd, // don't care
+        "aliasclk",
         /*alias handle =*/1
     ), 1u);
 
@@ -71,11 +71,12 @@ TEST_F(WriterTest, DISABLED_CreateVarAlias) {
     string buf = get_hierarchy_buffer();
     // expected: Type, Direction, Name, Length, Alias Handle
     // FIXME: in fstapi.c:2598 it writes len, zero, zero for normal variable this may be a bug
-    string expected = "\x10\x01" "clk\x00\x01\x00"s;
+    string expected = "\x10\x01" "clk\x00\x01\x00"s \
+                      "\x12\x02" "aliasclk\x00\x0d\x01"s;
     EXPECT_EQ(buf, expected);
 }
 
-TEST_F(WriterTest, DISABLED_CreateAliasOutOfRange) {
+TEST_F(WriterTest, CreateAliasOutOfRange) {
     // Call CreateVar
     EXPECT_EQ(writer->CreateVar(
         fst::Hierarchy::VarType::eVcdWire,
@@ -106,6 +107,24 @@ TEST_F(WriterTest, Scope) {
     // expected: Scope Type, Name, component, Upscope
     string expected = "\xfe\x00top\x00" "component\x00" \
                       "\xff"s;
+    EXPECT_EQ(buf, expected);
+}
+
+TEST_F(WriterTest, CreateVarVcdReal) {
+    // Call CreateVar with eVcdReal
+    EXPECT_EQ(writer->CreateVar(
+        fst::Hierarchy::VarType::eVcdReal,
+        fst::Hierarchy::VarDirection::eFstInput,
+        /*length =*/0, // length is ignored for real
+        "real_val",
+        /*alias handle =*/0
+    ), 1u);
+
+    // Get the hierarchy buffer content
+    string buf = get_hierarchy_buffer();
+    // For eVcdReal, length should be encoded as 8 bytes (64 bits)
+    // Type: 0x1a, Direction: 0x01, Name: "real_val", Length: 0x08,  Alias: 0x00
+    string expected = "\x03\x01real_val\x00\x08\x00"s;
     EXPECT_EQ(buf, expected);
 }
 
