@@ -15,6 +15,9 @@ protected:
     const string get_hierarchy_buffer() {
         return writer->hierarchy_buffer_.str();
     }
+    const string get_geometry_buffer() {
+        return writer->geometry_buffer_.str();
+    }
 
     unique_ptr<fst::Writer> writer;
     ostringstream ss;
@@ -125,6 +128,46 @@ TEST_F(WriterTest, CreateVarVcdReal) {
     // For eVcdReal, length should be encoded as 8 bytes (64 bits)
     // Type: 0x1a, Direction: 0x01, Name: "real_val", Length: 0x08,  Alias: 0x00
     string expected = "\x03\x01real_val\x00\x08\x00"s;
+    EXPECT_EQ(buf, expected);
+}
+
+TEST_F(WriterTest, GeometryBufferNormalVar) {
+    EXPECT_EQ(writer->CreateVar(
+        fst::Hierarchy::VarType::eVcdWire,
+        fst::Hierarchy::VarDirection::eFstInput,
+        /*length =*/15,
+        "data",
+        /*alias handle =*/0
+    ), 1u);
+    string buf = get_geometry_buffer();
+    string expected = "\x0f"s;
+    EXPECT_EQ(buf, expected);
+}
+
+TEST_F(WriterTest, GeometryBufferRealVar) {
+    EXPECT_EQ(writer->CreateVar(
+        fst::Hierarchy::VarType::eVcdReal,
+        fst::Hierarchy::VarDirection::eFstInput,
+        /*length =*/0,
+        "real_data",
+        /*alias handle =*/0
+    ), 1u);
+    string buf = get_geometry_buffer();
+    string expected = "\x00"s;
+    EXPECT_EQ(buf, expected);
+}
+
+TEST_F(WriterTest, GeometryBufferZeroLengthVar) {
+    EXPECT_EQ(writer->CreateVar(
+        fst::Hierarchy::VarType::eVcdWire,
+        fst::Hierarchy::VarDirection::eFstInput,
+        /*length =*/0,
+        "zero",
+        /*alias handle =*/0
+    ), 1u);
+    string buf = get_geometry_buffer();
+    // leb128 encoding of 0xffffffff
+    string expected = "\xFF\xFF\xFF\xFF\x0F"s;
     EXPECT_EQ(buf, expected);
 }
 
