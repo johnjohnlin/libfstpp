@@ -58,6 +58,30 @@ struct StreamWriteHelper {
 		return *this;
 	}
 
+	StreamWriteHelper& WriteLEB128Signed(int64_t v) {
+		// Just reuse the logic from fstapi.c, is there a better way?
+		unsigned char buf[15]; /* ceil(64/7) = 10 + sign byte padded way up */
+		unsigned char byt;
+		unsigned char *pnt = buf;
+		int more = 1;
+		int len;
+		do {
+			byt = v | 0x80;
+			v >>= 7;
+
+			if (((!v) && (!(byt & 0x40))) || ((v == -1) && (byt & 0x40))) {
+				more = 0;
+				byt &= 0x7f;
+			}
+
+			*(pnt++) = byt;
+		} while (more);
+		len = pnt - buf;
+		os->write(reinterpret_cast<const char*>(buf), len);
+		return *this;
+	}
+
+
 	template<typename F>
 	StreamWriteHelper& WriteFloat(F f) {
 		// Always write in native endianness
