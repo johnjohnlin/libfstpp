@@ -1,5 +1,16 @@
-#include <gtest/gtest.h>
+// direct include
 #include "fstcpp/Writer.hpp"
+// C system headers
+// C++ standard library headers
+#include <algorithm>
+#include <cstdint>
+#include <cstring>
+#include <numeric>
+#include <iostream>
+#include <sstream>
+// Other libraries' .h files.
+#include <gtest/gtest.h>
+// Your project's .h files.
 
 using namespace std;
 
@@ -12,8 +23,17 @@ protected:
     const string get_hierarchy_buffer() {
         return writer.hierarchy_buffer_.str();
     }
+
     const string get_geometry_buffer() {
         return writer.geometry_buffer_.str();
+    }
+
+    // For testing internal function FlushValueChangeData_Timestamps_
+    string FlushValueChangeData_Timestamps_(vector<uint64_t>& timestamps) {
+        writer.value_change_data_.timestamps = timestamps;
+        ostringstream os;
+        writer.FlushValueChangeData_Timestamps_(os);
+        return os.str();
     }
 
     Writer writer;
@@ -166,6 +186,34 @@ TEST_F(WriterTest, GeometryBufferZerobitwidthVar) {
     // leb128 encoding of 0xffffffff
     string expected = "\xFF\xFF\xFF\xFF\x0F"s;
     EXPECT_EQ(buf, expected);
+}
+
+TEST_F(WriterTest, FlushValueChangeData_Timestamps) {
+    vector<uint64_t> timestamps;
+    // generate [0, {7'b1}, {7'b1, 7'b2}] ... to 56-bits (Verilog notation)
+    timestamps.reserve(9);
+    timestamps.push_back(0);
+    for (uint64_t i = 1, val = 0; i <= 8; ++i) {
+        val |= i << ((i - 1) * 7);
+        timestamps.push_back(val);
+    }
+    // cumsum first since the function encodes timestamps as deltas
+    partial_sum(timestamps.begin(), timestamps.end(), timestamps.begin());
+
+    string result = FlushValueChangeData_Timestamps_(timestamps);
+    // Expected varint encoding of the timestamps
+    // The LEB128 shall looks like 1 12 123 1234 with the 1 becomes 0x81
+    string expected =
+        "\x00"
+        "\x01"
+        "\x81\x02"
+        "\x81\x82\x03"
+        "\x81\x82\x83\x04"
+        "\x81\x82\x83\x84\x05"
+        "\x81\x82\x83\x84\x85\x06"
+        "\x81\x82\x83\x84\x85\x86\x07"
+        "\x81\x82\x83\x84\x85\x86\x87\x08"s;
+    EXPECT_EQ(result, expected);
 }
 
 } // namespace fst
