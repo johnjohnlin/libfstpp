@@ -29,7 +29,7 @@ protected:
     }
 
     // For testing internal function FlushValueChangeData_Timestamps_
-    string FlushValueChangeData_Timestamps_(vector<uint64_t>& timestamps) {
+    string FlushValueChangeData_Timestamps_(const vector<uint64_t>& timestamps) {
         writer.value_change_data_.timestamps = timestamps;
         ostringstream os;
         writer.FlushValueChangeData_Timestamps_(os);
