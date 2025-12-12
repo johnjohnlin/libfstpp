@@ -464,7 +464,7 @@ Handle Writer::CreateVar(
 	.WriteUInt(static_cast<uint8_t>(vardir))
 	.WriteString(name)
 	.WriteLEB128(bitwidth)
-	.WriteLEB128(alias_handle);
+	.WriteLEB128(is_alias ? alias_handle : 0);
 
 	// If alias_handle == 0, we must allocate geom/valpos/curval entries and create a new handle
 	if (not is_alias) {
