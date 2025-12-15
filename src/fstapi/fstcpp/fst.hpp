@@ -16,6 +16,12 @@ namespace fst {
 
 typedef uint32_t Handle;
 
+enum WriterPackType : uint8_t {
+	eZlib = 0,
+	eFastLz = 1,
+	eLz4 = 2,
+};
+
 enum FileType : uint8_t {
 	eVerilog = 0,
 	eVhdl,
