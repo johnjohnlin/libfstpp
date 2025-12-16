@@ -27,6 +27,12 @@
 ///
 //*************************************************************************
 
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#pragma GCC diagnostic ignored "-Wpedantic"
+#pragma GCC diagnostic ignored "-Wformat"
+
 #ifndef VERILATOR_VERILATED_H_
 #define VERILATOR_VERILATED_H_
 #define VERILATOR_VERILATED_H_INTERNAL_

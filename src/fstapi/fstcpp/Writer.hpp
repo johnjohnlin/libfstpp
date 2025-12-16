@@ -5,7 +5,6 @@
 // C++ standard library headers
 #include <algorithm>
 #include <cstdint>
-#include <cstring>
 #include <ctime>
 #include <fstream>
 #include <memory>
@@ -50,6 +49,23 @@ struct ValueChangeData {
 		return timestamps.empty() ? 0 : timestamps.back();
 	}
 	uint64_t first_timestamp = 0;
+
+	void WriteInitialBits(std::ostream &os) const;
+	std::vector<std::vector<char>> ComputeWaveData() const;
+	static std::vector<int64_t> UniquifyWaveData(
+		std::vector<std::vector<char>> &data
+	);
+	static uint64_t EncodePositionsAndWriteUniqueWaveData(
+		std::ostream &os,
+		const std::vector<std::vector<char>> &unique_data,
+		std::vector<int64_t> &positions
+	);
+	std::vector<int64_t> WriteValueChanges(std::ostream &os) const;
+	static void WriteEncodedPositions(
+		const std::vector<int64_t> &encoded_positions,
+		std::ostream &os
+	);
+	void WriteTimestamps(std::ostream &os) const;
 };
 
 } // namespace detail
@@ -183,23 +199,15 @@ private:
 	enum WriterPackType pack_type_ = WriterPackType::eZlib;
 
 	// internal helpers
-	void WriteHeader_(); // Always write header at the beginning of stream
-	void AppendGeometry_(); // Always append hierarchy at the end of stream
-	void AppendHierarchy_(); // Always append hierarchy at the end of stream
-	void AppendBlackout_(); // Always append hierarchy at the end of stream
-	void FlushValueChangeData_InitialBits_(std::ostream &os);
-	std::vector<std::vector<char>> FlushValueChangeData_ValueChanges_ComputeWaveData_();
-	std::vector<int64_t> FlushValueChangeData_ValueChanges_UniquifyWaveData_(
-		std::vector<std::vector<char>>& data
+	static void WriteHeader_(const Header &header, std::ostream &os);
+	void AppendGeometry_(std::ostream &os);
+	void AppendHierarchy_(std::ostream &os);
+	void AppendBlackout_(std::ostream &os);
+	static void FlushValueChangeData_(
+		const detail::ValueChangeData &vcd,
+		const Header &header,
+		std::ostream &os
 	);
-	void FlushValueChangeData_ValueChanges_FinalizePositionsAndWrite_(
-		std::ostream& os,
-		std::vector<std::vector<char>>& data,
-		std::vector<int64_t>& positions
-	);
-	std::vector<int64_t> FlushValueChangeData_ValueChanges_(std::ostream &os);
-	void FlushValueChangeData_Positions_(std::ostream& os, const std::vector<int64_t>& positions);
-	void FlushValueChangeData_Timestamps_(std::ostream &os);
 	void FlushValueChangeData_(); // Flush to main_fst_file_ directly
 	void FinalizeHierarchy_() { hierarchy_finalized_ = true; }
 };

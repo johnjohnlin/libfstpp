@@ -5,42 +5,42 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <numeric>
 #include <iostream>
 #include <sstream>
 // Other libraries' .h files.
 #include <gtest/gtest.h>
 // Your project's .h files.
+#include "fstcpp/StreamWriteHelper.hpp"
+#include "fstcpp/fst_file.hpp"
 
 using namespace std;
 
 namespace fst {
 
+// This test focus on testing the emit functions of writer
+// The name of this test is not unique
+// but it is not a problem since Writer_*.test.cpp are individual
+// binary files
 class WriterTest : public ::testing::Test {
 protected:
-    void SetUp() override {}
-
-    const string get_hierarchy_buffer() {
+    // For testing Set(Up)Scope/CreateVar
+    // We call writer API and get the buffer content
+    // without inspecting the internal state of writer
+    static const string GetHierarchyBuffer(Writer& writer) {
         return writer.hierarchy_buffer_.str();
     }
 
-    const string get_geometry_buffer() {
+    static const string GetGeometryBuffer(Writer& writer) {
         return writer.geometry_buffer_.str();
     }
 
-    // For testing internal function FlushValueChangeData_Timestamps_
-    string FlushValueChangeData_Timestamps_(const vector<uint64_t>& timestamps) {
-        writer.value_change_data_.timestamps = timestamps;
-        ostringstream os;
-        writer.FlushValueChangeData_Timestamps_(os);
-        return os.str();
+    static void WriteHeader(const Header &h, ostream &os) {
+        Writer::WriteHeader_(h, os);
     }
-
-    Writer writer;
-    ostringstream ss;
 };
 
 TEST_F(WriterTest, CreateVar) {
+    Writer writer;
     // Call CreateVar
     EXPECT_EQ(writer.CreateVar(
         fst::Hierarchy::VarType::eVcdWire,
@@ -60,7 +60,7 @@ TEST_F(WriterTest, CreateVar) {
     ), 2u);
 
     // Get the hierarchy buffer content
-    string buf = get_hierarchy_buffer();
+    string buf = GetHierarchyBuffer(writer);
     // expected: Type, Direction, Name, bitwidth, Alias Handle
     // FIXME: in fstapi.c:2598 it writes len, zero, zero for normal variable this may be a bug
     string expected = "\x10\x01valid\x00\x08\x00"s \
@@ -69,6 +69,7 @@ TEST_F(WriterTest, CreateVar) {
 }
 
 TEST_F(WriterTest, CreateVarAlias) {
+    Writer writer;
     // Call CreateVar
     EXPECT_EQ(writer.CreateVar(
         fst::Hierarchy::VarType::eVcdWire,
@@ -88,7 +89,7 @@ TEST_F(WriterTest, CreateVarAlias) {
     ), 1u);
 
     // Get the hierarchy buffer content
-    string buf = get_hierarchy_buffer();
+    string buf = GetHierarchyBuffer(writer);
     // expected: Type, Direction, Name, bitwidth, Alias Handle
     // FIXME: in fstapi.c:2598 it writes len, zero, zero for normal variable this may be a bug
     string expected = "\x10\x01" "clk\x00\x01\x00"s \
@@ -97,6 +98,7 @@ TEST_F(WriterTest, CreateVarAlias) {
 }
 
 TEST_F(WriterTest, CreateAliasOutOfRange) {
+    Writer writer;
     // Call CreateVar
     EXPECT_EQ(writer.CreateVar(
         fst::Hierarchy::VarType::eVcdWire,
@@ -107,7 +109,7 @@ TEST_F(WriterTest, CreateAliasOutOfRange) {
     ), 1u);
 
     // Get the hierarchy buffer content
-    string buf = get_hierarchy_buffer();
+    string buf = GetHierarchyBuffer(writer);
     // expected: Type, Direction, Name, bitwidth, Alias Handle
     // FIXME: in fstapi.c:2598 it writes len, zero, zero for normal variable this may be a bug
     string expected = "\x10\x01mode\x00\x10\x00"s;
@@ -115,6 +117,7 @@ TEST_F(WriterTest, CreateAliasOutOfRange) {
 }
 
 TEST_F(WriterTest, Scope) {
+    Writer writer;
     // Set Scope
     writer.SetScope(
         fst::Hierarchy::ScopeType::eVcdModule,
@@ -123,7 +126,7 @@ TEST_F(WriterTest, Scope) {
     writer.Upscope();
 
     // Get the hierarchy buffer content
-    string buf = get_hierarchy_buffer();
+    string buf = GetHierarchyBuffer(writer);
     // expected: Scope Type, Name, component, Upscope
     string expected = "\xfe\x00top\x00" "component\x00" \
                       "\xff"s;
@@ -131,6 +134,7 @@ TEST_F(WriterTest, Scope) {
 }
 
 TEST_F(WriterTest, CreateVarVcdReal) {
+    Writer writer;
     // Call CreateVar with eVcdReal
     EXPECT_EQ(writer.CreateVar(
         fst::Hierarchy::VarType::eVcdReal,
@@ -141,7 +145,7 @@ TEST_F(WriterTest, CreateVarVcdReal) {
     ), 1u);
 
     // Get the hierarchy buffer content
-    string buf = get_hierarchy_buffer();
+    string buf = GetHierarchyBuffer(writer);
     // For eVcdReal, bitwidth should be encoded as 8 bytes (64 bits)
     // Type: 0x1a, Direction: 0x01, Name: "real_val", bitwidth: 0x08,  Alias: 0x00
     string expected = "\x03\x01real_val\x00\x08\x00"s;
@@ -149,6 +153,7 @@ TEST_F(WriterTest, CreateVarVcdReal) {
 }
 
 TEST_F(WriterTest, GeometryBufferNormalVar) {
+    Writer writer;
     EXPECT_EQ(writer.CreateVar(
         fst::Hierarchy::VarType::eVcdWire,
         fst::Hierarchy::VarDirection::eInput,
@@ -156,12 +161,13 @@ TEST_F(WriterTest, GeometryBufferNormalVar) {
         "data",
         /*alias handle =*/0
     ), 1u);
-    string buf = get_geometry_buffer();
+    string buf = GetGeometryBuffer(writer);
     string expected = "\x0f"s;
     EXPECT_EQ(buf, expected);
 }
 
 TEST_F(WriterTest, GeometryBufferRealVar) {
+    Writer writer;
     EXPECT_EQ(writer.CreateVar(
         fst::Hierarchy::VarType::eVcdReal,
         fst::Hierarchy::VarDirection::eInput,
@@ -169,12 +175,13 @@ TEST_F(WriterTest, GeometryBufferRealVar) {
         "real_data",
         /*alias handle =*/0
     ), 1u);
-    string buf = get_geometry_buffer();
+    string buf = GetGeometryBuffer(writer);
     string expected = "\x00"s;
     EXPECT_EQ(buf, expected);
 }
 
 TEST_F(WriterTest, GeometryBufferZerobitwidthVar) {
+    Writer writer;
     EXPECT_EQ(writer.CreateVar(
         fst::Hierarchy::VarType::eVcdWire,
         fst::Hierarchy::VarDirection::eInput,
@@ -182,38 +189,86 @@ TEST_F(WriterTest, GeometryBufferZerobitwidthVar) {
         "zero",
         /*alias handle =*/0
     ), 1u);
-    string buf = get_geometry_buffer();
+    string buf = GetGeometryBuffer(writer);
     // leb128 encoding of 0xffffffff
     string expected = "\xFF\xFF\xFF\xFF\x0F"s;
     EXPECT_EQ(buf, expected);
 }
 
-TEST_F(WriterTest, FlushValueChangeData_Timestamps) {
-    vector<uint64_t> timestamps;
-    // generate [0, {7'b1}, {7'b1, 7'b2}] ... to 56-bits (Verilog notation)
-    timestamps.reserve(9);
-    timestamps.push_back(0);
-    for (uint64_t i = 1, val = 0; i <= 8; ++i) {
-        val |= i << ((i - 1) * 7);
-        timestamps.push_back(val);
-    }
-    // cumsum first since the function encodes timestamps as deltas
-    partial_sum(timestamps.begin(), timestamps.end(), timestamps.begin());
+////////////////////////////////////////////////
+// Tests for WriteHeader
+////////////////////////////////////////////////
+TEST_F(WriterTest, WriteHeader) {
+    // 1. Setup Header struct manually with unique values
+    Header h_struct;
+    h_struct.start_time = 10;
+    h_struct.end_time = 1000;
+    h_struct.writer_memory_use = 4096;
+    h_struct.num_scopes = 5;
+    h_struct.num_vars = 42;
+    h_struct.num_handles = 100;
+    h_struct.num_value_change_data_blocks = 3;
+    h_struct.timezero = 123456789;
+    h_struct.timescale = -9;
+    h_struct.filetype = FileType::eVerilog;
 
-    string result = FlushValueChangeData_Timestamps_(timestamps);
-    // Expected varint encoding of the timestamps
-    // The LEB128 shall looks like 1 12 123 1234 with the 1 becomes 0x81
-    string expected =
-        "\x00"
-        "\x01"
-        "\x81\x02"
-        "\x81\x82\x03"
-        "\x81\x82\x83\x04"
-        "\x81\x82\x83\x84\x05"
-        "\x81\x82\x83\x84\x85\x06"
-        "\x81\x82\x83\x84\x85\x86\x07"
-        "\x81\x82\x83\x84\x85\x86\x87\x08"s;
-    EXPECT_EQ(result, expected);
+    const string writer_name = "Verilator FST Writer Test";
+    // safe copy
+    const auto wlen = min(writer_name.size(), sizeof(h_struct.writer));
+    copy_n(writer_name.data(), wlen, h_struct.writer);
+    if (wlen < sizeof(h_struct.writer))
+        h_struct.writer[wlen] = '\0';
+
+    // Date must be exactly 25 chars (asctime format with \n)
+    const string date_str = "Fri Dec 13 01:21:40 2024\n";
+    const auto dlen = min(date_str.size(), sizeof(h_struct.date));
+    copy_n(date_str.data(), dlen, h_struct.date);
+    // note: date is not null terminated in struct if full, but our test string
+    // fits with null if we want
+    if (dlen < sizeof(h_struct.date))
+        h_struct.date[dlen] = '\0';
+
+    // 2. Call static WriteHeader_ to stringstream
+    ostringstream os;
+    WriteHeader(h_struct, os);
+
+    // 3. Generate Golden Reference
+    ostringstream expected_os;
+    StreamWriteHelper h(expected_os);
+
+    // Helper to pad strings with nulls
+    auto write_padded = [&](const string &s, size_t len) {
+        vector<char> buf(len, 0);
+        if (not s.empty()) {
+            memcpy(buf.data(), s.data(), min(s.size(), len));
+        }
+        h.Write(buf.data(), len);
+    };
+
+    h
+    .WriteBlockHeader(BlockType::Header, HeaderInfo::total_size)
+    .WriteUInt(uint64_t(10))   // start_time
+    .WriteUInt(uint64_t(1000)) // end_time
+    .WriteFloat(HeaderInfo::kEndianessMagicIdentifier)
+    .WriteUInt(uint64_t(4096)) // writer_memory_use
+    .WriteUInt(uint64_t(5))    // num_scopes
+    .WriteUInt(uint64_t(42))   // num_vars
+    .WriteUInt(uint64_t(100))  // num_handles
+    .WriteUInt(uint64_t(3))    // num_value_change_data_blocks
+    .WriteUInt(int8_t(-9));    // timescale
+
+    write_padded(writer_name, sizeof(h_struct.writer));
+    write_padded(date_str, sizeof(h_struct.date));
+
+    h
+    .Fill('\0', HeaderInfo::Size::reserved)
+    .WriteUInt(static_cast<uint8_t>(FileType::eVerilog)) // filetype (default)
+    .WriteUInt(int64_t(123456789));                      // timezero
+
+    // 4. Compare
+    // Since stream includes binary 0s, we compare underlying strings
+    EXPECT_EQ(os.str().size(), expected_os.str().size());
+    EXPECT_EQ(os.str(), expected_os.str());
 }
 
 } // namespace fst

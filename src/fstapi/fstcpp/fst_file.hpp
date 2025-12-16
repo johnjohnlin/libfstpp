@@ -8,6 +8,18 @@
 
 namespace fst {
 
+// Original block types from fstapi.h
+// FST_BL_HDR = 0,
+// FST_BL_VCDATA = 1,
+// FST_BL_BLACKOUT = 2,
+// FST_BL_GEOM = 3,
+// FST_BL_HIER = 4,
+// FST_BL_VCDATA_DYN_ALIAS = 5,
+// FST_BL_HIER_LZ4 = 6,
+// FST_BL_HIER_LZ4DUO = 7,
+// FST_BL_VCDATA_DYN_ALIAS2 = 8,
+// FST_BL_ZWRAPPER = 254,
+// FST_BL_SKIP = 255
 enum class BlockType : uint8_t {
 	Header = 0,
 	WaveDataVersion1 = 1, // not implemented
