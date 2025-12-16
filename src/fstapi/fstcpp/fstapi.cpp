@@ -321,6 +321,20 @@ void fstWriterSetDumpSizeLimit(fstWriterContext*, uint64_t) { NotImplementedWarn
 void fstWriterSetFileType(fstWriterContext*, enum fstFileType) { NotImplementedWarning(__func__); }
 void fstWriterSetParallelMode(fstWriterContext*, int) { NotImplementedWarning(__func__); }
 void fstWriterSetRepackOnClose(fstWriterContext*, int) { NotImplementedWarning(__func__); }
-void fstWriterSetPackType(fstWriterContext *, enum fstWriterPackType) { NotImplementedWarning(__func__); }
+void fstWriterSetPackType(fstWriterContext *ctx, enum fstWriterPackType pack_type) {
+	if (not ctx) return;
+	switch (pack_type) {
+	case FST_WR_PT_ZLIB:
+		ctx->writer.SetWriterPackType(fst::WriterPackType::eZlib);
+		return;
+	case FST_WR_PT_FASTLZ:
+		ctx->writer.SetWriterPackType(fst::WriterPackType::eFastLz);
+		return;
+	case FST_WR_PT_LZ4:
+		ctx->writer.SetWriterPackType(fst::WriterPackType::eLz4);
+		return;
+	}
+	UNREACHABLE;
+}
 
 } // extern "C"
