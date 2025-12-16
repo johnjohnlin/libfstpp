@@ -268,6 +268,10 @@ struct VariableInfoLongInt : public ValueChangeData::VariableInfoBase {
 	void EmitValueChange(uint64_t current_time_index, const uint64_t val) override {
 		change_entries.push_back({current_time_index, EncodingType::eBinary});
 		value_changes.push_back(val);
+		// LongInt requires more numbers of words to represent a full value
+		for (unsigned i = 0; i < num_words() - 1; ++i) {
+			value_changes.push_back(0);
+		}
 	}
 
 	void EmitValueChange(uint64_t current_time_index, const uint64_t *val, EncodingType encoding) override {
