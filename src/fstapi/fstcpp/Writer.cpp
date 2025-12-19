@@ -693,7 +693,7 @@ void Writer::AppendBlackout_(ostream& os) {
 	StreamWriteHelper h(os);
 	h
 	// skip the block header
-	.Seek(kSharedBlockHeaderSize, ios_base::end)
+	.Seek(kSharedBlockHeaderSize, ios_base::cur)
 	// Note: we cannot know the size beforehand since this length is LEB128 encoded
 	.WriteLEB128(blackout_data.size())
 	.Write(blackout_data.data(), blackout_data.size());

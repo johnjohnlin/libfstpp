@@ -37,6 +37,10 @@ protected:
     static void WriteHeader(const Header &h, ostream &os) {
         Writer::WriteHeader_(h, os);
     }
+
+    static void AppendBlackout(Writer& writer, std::ostream& os) {
+        writer.AppendBlackout_(os);
+    }
 };
 
 TEST_F(WriterTest, CreateVar) {
@@ -193,6 +197,30 @@ TEST_F(WriterTest, GeometryBufferZerobitwidthVar) {
     // leb128 encoding of 0xffffffff
     string expected = "\xFF\xFF\xFF\xFF\x0F"s;
     EXPECT_EQ(buf, expected);
+}
+
+////////////////////////////////////////////////
+// Tests for Blackout
+////////////////////////////////////////////////
+TEST_F(WriterTest, WriteBlackout_Short) {
+    Writer writer;
+    // 1. Blackout between 10 to 20
+    writer.EmitTimeChange(10);
+    writer.EmitDumpActive(false);
+    writer.EmitTimeChange(20);
+    writer.EmitDumpActive(true);
+    // Check output
+    std::string ss(9, '\0'); // need some buffer to allow AppendBlackout to seek
+    std::stringstream os(ss);
+    AppendBlackout(writer, os);
+    std::string out = os.str();
+
+    // Verify block type and size
+    EXPECT_EQ(static_cast<uint8_t>(out[0]), static_cast<uint8_t>(BlockType::Blackout));
+    // block size field (8 bytes, big-endian) contains value of 13
+    EXPECT_EQ(out.substr(1, 8), "\x00\x00\x00\x00\x00\x00\x00\x0d"s);
+    // Next 5 bytes: 0x04 0x00 0x0a 0x01 0x14
+    EXPECT_EQ(out.substr(9, 5), "\x04\x00\x0a\x01\x14"s);
 }
 
 ////////////////////////////////////////////////
