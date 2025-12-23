@@ -68,4 +68,32 @@ TEST(VariableInfoTest, WriteInitialBits_Double) {
     EXPECT_DOUBLE_EQ(val, 1.0);
 }
 
+TEST(VariableInfoTest, DumpValueChange_SingleBinary) {
+    std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(1, false));
+    vi->EmitValueChange(1, 0);
+    vi->EmitValueChange(2, 1);
+    vi->EmitValueChange(3, 0);
+    std::ostringstream os;
+    vi->DumpValueChanges(os);
+    // Encoding time_index_delta << 2 | (bit << 1) | 0 in binary mode
+    // (1-0) << 2 | 0b00
+    // (2-1) << 2 | 0b10
+    // (3-2) << 2 | 0b00
+    EXPECT_EQ(os.str(), "\x04\x06\x04"s);
+}
+
+TEST(VariableInfoTest, DumpValueChange_Long) {
+    std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(70, false));
+    vi->EmitValueChange(0, (1ULL << 63) | 1);
+    std::ostringstream os;
+    EXPECT_THROW(vi->DumpValueChanges(os), std::runtime_error);
+}
+
+TEST(VariableInfoTest, DumpValueChange_Double) {
+    std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(8, true));
+    vi->EmitValueChange(0, 0x3ff0000000000000ULL); // 1.0 in IEEE754
+    std::ostringstream os;
+    EXPECT_THROW(vi->DumpValueChanges(os), std::runtime_error);
+}
+
 } // namespace fst
