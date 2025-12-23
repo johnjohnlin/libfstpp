@@ -82,6 +82,20 @@ TEST(VariableInfoTest, DumpValueChange_SingleBinary) {
     EXPECT_EQ(os.str(), "\x04\x06\x04"s);
 }
 
+TEST(VariableInfoTest, DISABLED_DumpValueChange_DoubleBinary) {
+    std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(2, false));
+    vi->EmitValueChange(1, 0);
+    vi->EmitValueChange(3, 1);
+    vi->EmitValueChange(5, 2);
+    vi->EmitValueChange(7, 3);
+    vi->EmitValueChange(10, 0);
+    std::ostringstream os;
+    vi->DumpValueChanges(os);
+    // 1. Varint encoding of Time_index_delta << 1 | 1 since it contains only 0 and 1
+    // 2. data encoded as raw bits packed into a whole number of bytes
+    EXPECT_EQ(os.str(), "\x03\x00\x05\x01\x05\x02\x05\x03\x07\x00"s);
+}
+
 TEST(VariableInfoTest, DumpValueChange_Long) {
     std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(70, false));
     vi->EmitValueChange(0, (1ULL << 63) | 1);
