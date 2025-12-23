@@ -4,6 +4,7 @@
 // C++ standard library headers
 #include <bit>
 #include <cstdint>
+#include <cstring>
 #include <iostream>
 // Other libraries' .h files.
 // Your project's .h files.

@@ -60,7 +60,6 @@ struct ValueChangeData {
 		const std::vector<std::vector<char>> &unique_data,
 		std::vector<int64_t> &positions
 	);
-	std::vector<int64_t> WriteValueChanges(std::ostream &os) const;
 	static void WriteEncodedPositions(
 		const std::vector<int64_t> &encoded_positions,
 		std::ostream &os
@@ -205,11 +204,11 @@ private:
 	void AppendBlackout_(std::ostream &os);
 	static void FlushValueChangeData_(
 		const detail::ValueChangeData &vcd,
-		const Header &header,
 		std::ostream &os
 	);
-	void FlushValueChangeData_(); // Flush to main_fst_file_ directly
 	void FinalizeHierarchy_() { hierarchy_finalized_ = true; }
+	template <typename... T>
+	void EmitValueChangeHelper_(Handle handle, T&&... val);
 };
 
 } // namespace fst

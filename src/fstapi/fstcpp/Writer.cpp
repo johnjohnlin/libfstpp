@@ -4,7 +4,6 @@
 // C++ standard library headers
 #include <bit>
 #include <charconv>
-#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -23,6 +22,8 @@
 using namespace std;
 
 namespace fst {
+
+static constexpr uint64_t kInvalidTime = uint64_t(-1);
 
 namespace detail {
 
@@ -54,7 +55,7 @@ struct ValueChangeData::VariableInfoBase {
 	VariableInfoBase(uint32_t bitwidth_) : bitwidth(bitwidth_) {
 		change_entries.reserve(32);
 		// keep initial time_index = 0; default encoding to eBinary (children may overwrite)
-		change_entries.push_back({0, EncodingType::eBinary});
+		change_entries.push_back({kInvalidTime, EncodingType::eBinary});
 	}
 
 	unsigned num_words() const { return (bitwidth + 63) / 64; }
@@ -79,7 +80,6 @@ struct ValueChangeData::VariableInfoBase {
 	virtual void KeepOnlyTheLatestValue() = 0;
 	virtual void DumpInitialBits(ostream &os) const = 0;
 	virtual void DumpValueChanges(ostream &os) const = 0;
-	virtual void DebugPrint(ostream &os) const = 0;
 	virtual ~VariableInfoBase() = default;
 };
 
@@ -92,6 +92,12 @@ struct VariableInfoDouble : public ValueChangeData::VariableInfoBase {
 	}
 
 	void EmitValueChange(uint64_t current_time_index, const uint64_t val) override {
+		if (current_time_index + 1 == 0) {
+			// This is the first value change, we need to remove everything
+			// and then add the new value
+			change_entries.resize(0);
+			value_changes.resize(0);
+		}
 		change_entries.push_back({current_time_index, EncodingType::eBinary});
 		value_changes.push_back(bit_cast<double>(val));
 	}
@@ -116,16 +122,6 @@ struct VariableInfoDouble : public ValueChangeData::VariableInfoBase {
 		(void)os;
 		throw runtime_error("TODO: DumpValueChanges not implemented for VariableInfoDouble");
 	}
-
-	// Debug-print override
-	void DebugPrint(ostream &os) const override {
-		os << "double values:\n";
-		os << "\ttime index|value:\n";
-		for (size_t i = 0; i < change_entries.size(); ++i) {
-			os << "\t" << change_entries.at(i).time_index << "|" << value_changes.at(i) << "\n";
-		}
-		os << "\n";
-	}
 };
 
 template<typename T>
@@ -135,10 +131,20 @@ struct VariableInfoScalarInt : public ValueChangeData::VariableInfoBase {
 	VariableInfoScalarInt(uint32_t bitwidth_) : ValueChangeData::VariableInfoBase(bitwidth_) {
 		value_changes.reserve(32);
 		// This is required by FST, we must have at least one entry
+		// This encodes X
 		value_changes.push_back(0);
+		value_changes.push_back(T(-1));
+		// override the encoding to Verilog (which is set to eBinary in parent constructor)
+		change_entries[0].encoding = EncodingType::eVerilog;
 	}
 
 	void EmitValueChange(uint64_t current_time_index, const uint64_t val) override {
+		if (current_time_index+1 == 0) {
+			// This is the first value change, we need to remove everything
+			// and then add the new value
+			change_entries.resize(0);
+			value_changes.resize(0);
+		}
 		change_entries.push_back({current_time_index, EncodingType::eBinary});
 		value_changes.push_back(val);
 	};
@@ -197,8 +203,8 @@ struct VariableInfoScalarInt : public ValueChangeData::VariableInfoBase {
 		if (bitwidth == 1) {
 			const T* value_ptr = value_changes.data();
 			value_ptr += static_cast<unsigned>(change_entries[0].encoding);
+			uint64_t prev_time_index = 0;
 			for (size_t i = 1; i < change_entries.size(); ++i) {
-
 				unsigned val = 0;
 				switch (change_entries[i].encoding) {
 				case EncodingType::eVhdl:
@@ -212,27 +218,28 @@ struct VariableInfoScalarInt : public ValueChangeData::VariableInfoBase {
 					val |= value_ptr[0];
 				}
 
-				uint64_t time_index = change_entries[i].time_index;
+				uint64_t delta_time_index = change_entries[i].time_index - prev_time_index;
+				prev_time_index = change_entries[i].time_index;
 				switch (val) {
-				case 0: time_index = (time_index<<2) | (0<<1) | 0; break; // '0'
-				case 1: time_index = (time_index<<2) | (1<<1) | 0; break; // '1'
-				case 2: time_index = (time_index<<4) | (0<<1) | 1; break; // 'X'
-				case 3: time_index = (time_index<<4) | (1<<1) | 1; break; // 'Z'
-				case 4: time_index = (time_index<<4) | (2<<1) | 1; break; // 'H'
-				case 5: time_index = (time_index<<4) | (3<<1) | 1; break; // 'U'
-				case 6: time_index = (time_index<<4) | (4<<1) | 1; break; // 'W'
-				case 7: time_index = (time_index<<4) | (5<<1) | 1; break; // 'L'
-				case 8: time_index = (time_index<<4) | (6<<1) | 1; break; // '-'
-				case 9: time_index = (time_index<<4) | (7<<1) | 1; break; // '?'
+				case 0: delta_time_index = (delta_time_index<<2) | (0<<1) | 0; break; // '0'
+				case 1: delta_time_index = (delta_time_index<<2) | (1<<1) | 0; break; // '1'
+				case 2: delta_time_index = (delta_time_index<<4) | (0<<1) | 1; break; // 'X'
+				case 3: delta_time_index = (delta_time_index<<4) | (1<<1) | 1; break; // 'Z'
+				case 4: delta_time_index = (delta_time_index<<4) | (2<<1) | 1; break; // 'H'
+				case 5: delta_time_index = (delta_time_index<<4) | (3<<1) | 1; break; // 'U'
+				case 6: delta_time_index = (delta_time_index<<4) | (4<<1) | 1; break; // 'W'
+				case 7: delta_time_index = (delta_time_index<<4) | (5<<1) | 1; break; // 'L'
+				case 8: delta_time_index = (delta_time_index<<4) | (6<<1) | 1; break; // '-'
+				case 9: delta_time_index = (delta_time_index<<4) | (7<<1) | 1; break; // '?'
 				default: break;
 				}
-				h.WriteLEB128(time_index);
+				h.WriteLEB128(delta_time_index);
 				value_ptr += static_cast<unsigned>(change_entries[i].encoding);
 			}
 		} else {
 			const T* value_ptr = value_changes.data();
 			value_ptr += static_cast<unsigned>(change_entries[0].encoding);
-			for (size_t i = 0; i < change_entries.size(); ++i) {
+			for (size_t i = 1; i < change_entries.size(); ++i) {
 				const bool all_binary = change_entries[i].encoding == EncodingType::eBinary;
 				uint64_t time_index = change_entries[i].time_index;
 				// TODO: what shall I write?
@@ -241,18 +248,6 @@ struct VariableInfoScalarInt : public ValueChangeData::VariableInfoBase {
 			}
 		}
 	}
-
-	// Debug-print override
-	void DebugPrint(ostream &os) const override {
-		os << bitwidth << "-bit int values:\n";
-		os << "\ttime index|encoding type|hex value:\n";
-		for (size_t i = 0, j = 0; i < change_entries.size(); ++i) {
-			const unsigned etype = static_cast<unsigned>(change_entries.at(i).encoding);
-			os << "\t" << change_entries.at(i).time_index << "|" << etype << "|" << hex << +value_changes.at(j) << dec << "\n";
-			j += etype;
-		}
-		os << "\n";
-	}
 };
 
 struct VariableInfoLongInt : public ValueChangeData::VariableInfoBase {
@@ -260,10 +255,21 @@ struct VariableInfoLongInt : public ValueChangeData::VariableInfoBase {
 
 	VariableInfoLongInt(uint32_t bitwidth_) : ValueChangeData::VariableInfoBase(bitwidth_) {
 		value_changes.reserve(32);
-		value_changes.assign(num_words(), 0);
+		// This is required by FST, we must have at least one entry
+		// This encodes X
+		value_changes.insert(value_changes.end(), num_words(), 0);
+		value_changes.insert(value_changes.end(), num_words(), uint64_t(-1));
+		// override the encoding to Verilog (which is set to eBinary in parent constructor)
+		change_entries[0].encoding = EncodingType::eVerilog;
 	}
 
 	void EmitValueChange(uint64_t current_time_index, const uint64_t val) override {
+		if (current_time_index+1 == 0) {
+			// This is the first value change, we need to remove everything
+			// and then add the new value
+			change_entries.resize(0);
+			value_changes.resize(0);
+		}
 		change_entries.push_back({current_time_index, EncodingType::eBinary});
 		value_changes.push_back(val);
 		// LongInt requires more numbers of words to represent a full value
@@ -273,6 +279,12 @@ struct VariableInfoLongInt : public ValueChangeData::VariableInfoBase {
 	}
 
 	void EmitValueChange(uint64_t current_time_index, const uint64_t *val, EncodingType encoding) override {
+		if (current_time_index+1 == 0) {
+			// This is the first value change (so, we need to remove everything
+			// and then add the new value
+			change_entries.resize(0);
+			value_changes.resize(0);
+		}
 		change_entries.push_back({current_time_index, encoding});
 		value_changes.insert(value_changes.end(), val, val + num_words() * static_cast<unsigned>(encoding));
 	}
@@ -293,9 +305,9 @@ struct VariableInfoLongInt : public ValueChangeData::VariableInfoBase {
 		// FST requires initial bits present
 		DCHECK(not change_entries.empty());
 
-		// Two cases:
-		//  - eBinary: value_changes contains num_words() words (LSB-word at index 0)
-		//  - eVerilog: value_changes contains num_words() * 2 words: [value words][mask words]
+		// - eBinary: value_changes contains num_words() words (LSB-word at index 0)
+		// - eVerilog: value_changes contains num_words() * 2 words: [value words][mask words]
+		// - eVhdl: value_changes contains num_words() * 3 words: [value words][mask words][vhdl mask words]
 		const unsigned nw = num_words();
 		const EncodingType enc = change_entries.front().encoding;
 		switch (enc) {
@@ -338,25 +350,6 @@ struct VariableInfoLongInt : public ValueChangeData::VariableInfoBase {
 		(void)os;
 		throw runtime_error("TODO: DumpValueChanges not implemented for VariableInfoLongInt");
 	}
-
-	// Debug-print override
-	void DebugPrint(ostream &os) const override {
-		os << "long values:\n";
-		os << "\ttime index|encoding type|hex value:\n";
-		// WRONG: original used value_changes.size() as loop limit which can differ from changes.size()
-		// FIX: iterate over changes.size()
-		for (size_t i = 0, j = 0; i < change_entries.size(); ++i) {
-			const unsigned etype = static_cast<unsigned>(change_entries.at(i).encoding);
-			os << "\t" << change_entries.at(i).time_index << "|" << etype << "|";
-			os << hex;
-			for (unsigned k = num_words(); k-- > 0;) {
-				os << setw(16) << setfill('0') << value_changes.at(j + k);
-			}
-			os << dec;
-			j += num_words() * etype;
-		}
-		os << "\n";
-	}
 };
 
 ValueChangeData::VariableInfoBase*
@@ -396,10 +389,12 @@ void Writer::Close() {
 		// date is not set yet, set to the current date
 		SetDate();
 	}
-	if (header_.start_time == uint64_t(-1)) {
+	if (header_.start_time == kInvalidTime) {
 		header_.start_time = 0;
 	}
 	WriteHeader_(header_, main_fst_file_);
+	// TODO: we only flush value change data here, but we should flush it in between
+	FlushValueChangeData_(value_change_data_, main_fst_file_);
 	AppendGeometry_(main_fst_file_);
 	AppendHierarchy_(main_fst_file_);
 	AppendBlackout_(main_fst_file_);
@@ -512,7 +507,7 @@ void Writer::EmitTimeChange(uint64_t tim) {
 
 	// TODO: condition for auto flush?
 	if (false) {
-		FlushValueChangeData_();
+		FlushValueChangeData_(value_change_data_, main_fst_file_);
 	} else {
 	}
 
@@ -529,22 +524,23 @@ void Writer::EmitDumpActive(bool enable) {
 	blackout_data_.EmitDumpActive(value_change_data_.current_timestamp(), enable);
 }
 
-void Writer::EmitValueChange(Handle handle, const uint32_t *val, EncodingType encoding) {
+template<typename... T>
+void Writer::EmitValueChangeHelper_(Handle handle, T&&... val) {
 	FinalizeHierarchy_();
 	auto& var_info = value_change_data_.variable_infos[handle - 1];
-	var_info->EmitValueChange(value_change_data_.timestamps.size() - 1, val, encoding);
+	var_info->EmitValueChange(value_change_data_.timestamps.size() - 1, std::forward<T>(val)...);
+}
+
+void Writer::EmitValueChange(Handle handle, const uint32_t *val, EncodingType encoding) {
+	EmitValueChangeHelper_(handle, val, encoding);
 }
 
 void Writer::EmitValueChange(Handle handle, const uint64_t *val, EncodingType encoding) {
-	FinalizeHierarchy_();
-	auto& var_info = value_change_data_.variable_infos.at(handle - 1);
-	var_info->EmitValueChange(value_change_data_.timestamps.size() - 1, val, encoding);
+	EmitValueChangeHelper_(handle, val, encoding);
 }
 
 void Writer::EmitValueChange(Handle handle, uint64_t val) {
-	FinalizeHierarchy_();
-	auto &var_info = value_change_data_.variable_infos[handle - 1];
-	var_info->EmitValueChange(value_change_data_.timestamps.size() - 1, val);
+	EmitValueChangeHelper_(handle, val);
 }
 
 void Writer::EmitValueChange(Handle handle, const char *val) {
@@ -770,10 +766,10 @@ uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
 	// After this function, positions[i] is:
 	//  - = 0: If variable i has no wave data
 	//  - < 0: The negative value from FlushValueChangeData_ValueChanges_UniquifyWaveData_, unchanged
-	//  - > 0: The size of previous *compressed* wave data block written
-	//         The previous size first block is 1.
+	//  - > 0: The cumulative offset (in bytes) in the output stream where this
+	//         variable's wave data block starts; the first block starts at offset 1.
 	StreamWriteHelper h(os);
-	int64_t previous_compressed_size = 1;
+	int64_t previous_offset = 1;
 	uint64_t written_count = 0;
 	for (size_t i = 0; i < positions.size(); ++i) {
 		if (positions[i] < 0) {
@@ -787,18 +783,12 @@ uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
 			h
 			.WriteLEB128(0) // 0 means no compression
 			.Write(data[i].data(), data[i].size());
-			positions[i] = previous_compressed_size;
-			previous_compressed_size = data[i].size();
+			positions[i] = previous_offset;
+			// advance by the size of the compression flag (LEB128-encoded 0 == 1 byte) plus data
+			previous_offset += 1 + data[i].size();
 		}
 	}
 	return written_count;
-}
-
-vector<int64_t> detail::ValueChangeData::WriteValueChanges(ostream& os) const {
-	auto data = ComputeWaveData();
-	auto positions = UniquifyWaveData(data);
-	EncodePositionsAndWriteUniqueWaveData(os, data /* uniquified */, positions);
-	return positions;
 }
 
 void detail::ValueChangeData::WriteEncodedPositions(const vector<int64_t>& encoded_positions, ostream& os) {
@@ -854,11 +844,9 @@ void detail::ValueChangeData::WriteTimestamps(ostream& os) const {
 		h.WriteLEB128(delta);
 		prev = cur;
 	}
-
 }
 
-void Writer::FlushValueChangeData_(const detail::ValueChangeData& vcd, const Header& header, ostream& os) {
-	(void)header; // unused for now
+void Writer::FlushValueChangeData_(const detail::ValueChangeData& vcd, ostream& os) {
 	if (vcd.timestamps.empty()) {
 		return;
 	}
@@ -953,10 +941,6 @@ void Writer::FlushValueChangeData_(const detail::ValueChangeData& vcd, const Hea
 
 	// Restore position to end
 	h.Seek(block_end, ios_base::beg);
-}
-
-void Writer::FlushValueChangeData_() {
-	FlushValueChangeData_(value_change_data_, header_, main_fst_file_);
 }
 
 } // namespace fst

@@ -135,7 +135,9 @@ TEST_F(WriterTest, FlushValueChangeData_ValueChanges_EncodePositionsAndWriteUniq
         0,
         // negative, positions[3] is unchanged
         -99,
-        // second non-empty block, positions[4] will be set to the size of previous block (2) after encoding
+        // second non-empty block, positions[4] will be set to
+        // the size of previous block (2) + offset of previous block (1)
+        // after encoding
         0,
     };
     ostringstream os;
@@ -148,14 +150,15 @@ TEST_F(WriterTest, FlushValueChangeData_ValueChanges_EncodePositionsAndWriteUniq
     EXPECT_EQ(positions[1], 1);
     EXPECT_EQ(positions[2], 0);
     EXPECT_EQ(positions[3], -99);
-    EXPECT_EQ(positions[4], 2);
+    EXPECT_EQ(positions[4], 1+2);
 
-    // Output: LEB128(2) + "ab" + LEB128(3) + "cde"
+    // Output: LEB128(0) + "ab" + LEB128(0) + "cde"
+    // 0 means no compression
     // TODO how to test if we implement compressed data?
     string expected =
-        "\x02"
+        "\x00"
         "ab"
-        "\x03"
+        "\x00"
         "cde"s;
     EXPECT_EQ(os.str(), expected);
 }
