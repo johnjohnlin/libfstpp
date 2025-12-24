@@ -25,6 +25,7 @@ void VSimple___024root__trace_chg_0_sub_0(VSimple___024root* vlSelf, VerilatedFs
     // Body
     bufp->chgBit(oldp+0,(vlSelfRef.clk));
     bufp->chgBit(oldp+1,(vlSelfRef.rst_n));
+    bufp->chgCData(oldp+2,(vlSelfRef.Simple__DOT__counter_add),2);
 }
 
 void VSimple___024root__trace_cleanup(void* voidSelf, VerilatedFst* /*unused*/) {

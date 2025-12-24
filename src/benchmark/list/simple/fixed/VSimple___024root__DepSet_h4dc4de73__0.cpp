@@ -11,10 +11,28 @@ void VSimple___024root___eval_act(VSimple___024root* vlSelf) {
     auto& vlSelfRef = std::ref(*vlSelf).get();
 }
 
+void VSimple___024root___nba_sequent__TOP__0(VSimple___024root* vlSelf);
+
 void VSimple___024root___eval_nba(VSimple___024root* vlSelf) {
     VL_DEBUG_IF(VL_DBG_MSGF("+    VSimple___024root___eval_nba\n"); );
     VSimple__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     auto& vlSelfRef = std::ref(*vlSelf).get();
+    // Body
+    if ((3ULL & vlSelfRef.__VnbaTriggered.word(0U))) {
+        VSimple___024root___nba_sequent__TOP__0(vlSelf);
+    }
+}
+
+VL_INLINE_OPT void VSimple___024root___nba_sequent__TOP__0(VSimple___024root* vlSelf) {
+    VL_DEBUG_IF(VL_DBG_MSGF("+    VSimple___024root___nba_sequent__TOP__0\n"); );
+    VSimple__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
+    auto& vlSelfRef = std::ref(*vlSelf).get();
+    // Body
+    vlSelfRef.Simple__DOT__counter_add = ((IData)(vlSelfRef.rst_n)
+                                           ? (3U & 
+                                              ((IData)(1U) 
+                                               + (IData)(vlSelfRef.Simple__DOT__counter_add)))
+                                           : 0U);
 }
 
 void VSimple___024root___eval_triggers__act(VSimple___024root* vlSelf);
@@ -24,7 +42,7 @@ bool VSimple___024root___eval_phase__act(VSimple___024root* vlSelf) {
     VSimple__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     auto& vlSelfRef = std::ref(*vlSelf).get();
     // Init
-    VlTriggerVec<0> __VpreTriggered;
+    VlTriggerVec<2> __VpreTriggered;
     CData/*0:0*/ __VactExecute;
     // Body
     VSimple___024root___eval_triggers__act(vlSelf);
