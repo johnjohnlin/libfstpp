@@ -91,9 +91,9 @@ TEST(VariableInfoTest, DISABLED_DumpValueChange_DoubleBinary) {
     vi->EmitValueChange(10, 0);
     std::ostringstream os;
     vi->DumpValueChanges(os);
-    // 1. Varint encoding of Time_index_delta << 1 | 1 since it contains only 0 and 1
-    // 2. data encoded as raw bits packed into a whole number of bytes
-    EXPECT_EQ(os.str(), "\x03\x00\x05\x01\x05\x02\x05\x03\x07\x00"s);
+    // 1. Varint encoding of (Time_index_delta << 1) | 0
+    // 2. data encoded as raw bits,aligned with MSB and packed into a whole number of bytes
+    EXPECT_EQ(os.str(), "\x02\x00\x04\x40\x04\x80\x04\xc0\x06\x00"s);
 }
 
 TEST(VariableInfoTest, DumpValueChange_Long) {
