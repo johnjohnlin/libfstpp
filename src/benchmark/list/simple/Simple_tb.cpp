@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
     tb->rst_n = 1;
 
     // magic number, run 100 cycles
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 150; i++) {
         tb->clk = !tb->clk;
         tb->eval();
         if (tfp) tfp->dump(sim_time);

@@ -14,14 +14,13 @@ always_ff @(posedge clk or negedge rst_n) begin
   end
 end
 
-// Unable to handle right now
-// logic [126:0] counter_shift;
-// always_ff @(posedge clk or negedge rst_n) begin
-//   if (!rst_n) begin
-//     counter_shift <= 127'b0;
-//   end else begin
-//     counter_shift <= {counter_shift[125:0], 1'b1};
-//   end
-// end
+logic [126:0] counter_shift;
+always_ff @(posedge clk or negedge rst_n) begin
+  if (!rst_n) begin
+    counter_shift <= 127'b0;
+  end else begin
+    counter_shift <= {counter_shift[124:0], 2'b11};
+  end
+end
 
 endmodule

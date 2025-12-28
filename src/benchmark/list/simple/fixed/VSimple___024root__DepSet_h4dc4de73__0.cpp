@@ -20,6 +20,7 @@ void VSimple___024root___eval_nba(VSimple___024root* vlSelf) {
     // Body
     if ((3ULL & vlSelfRef.__VnbaTriggered.word(0U))) {
         VSimple___024root___nba_sequent__TOP__0(vlSelf);
+        vlSelfRef.__Vm_traceActivity[1U] = 1U;
     }
 }
 
@@ -27,12 +28,36 @@ VL_INLINE_OPT void VSimple___024root___nba_sequent__TOP__0(VSimple___024root* vl
     VL_DEBUG_IF(VL_DBG_MSGF("+    VSimple___024root___nba_sequent__TOP__0\n"); );
     VSimple__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     auto& vlSelfRef = std::ref(*vlSelf).get();
+    // Init
+    VlWide<4>/*127:0*/ __Vtemp_2;
     // Body
-    vlSelfRef.Simple__DOT__counter_add = ((IData)(vlSelfRef.rst_n)
-                                           ? (3U & 
+    if (vlSelfRef.rst_n) {
+        vlSelfRef.Simple__DOT__counter_add = (3U & 
                                               ((IData)(1U) 
-                                               + (IData)(vlSelfRef.Simple__DOT__counter_add)))
-                                           : 0U);
+                                               + (IData)(vlSelfRef.Simple__DOT__counter_add)));
+        __Vtemp_2[1U] = ((vlSelfRef.Simple__DOT__counter_shift[0U] 
+                          >> 0x1eU) | (vlSelfRef.Simple__DOT__counter_shift[1U] 
+                                       << 2U));
+        __Vtemp_2[2U] = ((vlSelfRef.Simple__DOT__counter_shift[1U] 
+                          >> 0x1eU) | (vlSelfRef.Simple__DOT__counter_shift[2U] 
+                                       << 2U));
+        __Vtemp_2[3U] = ((vlSelfRef.Simple__DOT__counter_shift[2U] 
+                          >> 0x1eU) | (0x7ffffffcU 
+                                       & (vlSelfRef.Simple__DOT__counter_shift[3U] 
+                                          << 2U)));
+        vlSelfRef.Simple__DOT__counter_shift[0U] = 
+            (3U | (vlSelfRef.Simple__DOT__counter_shift[0U] 
+                   << 2U));
+    } else {
+        vlSelfRef.Simple__DOT__counter_add = 0U;
+        __Vtemp_2[1U] = 0U;
+        __Vtemp_2[2U] = 0U;
+        __Vtemp_2[3U] = 0U;
+        vlSelfRef.Simple__DOT__counter_shift[0U] = 0U;
+    }
+    vlSelfRef.Simple__DOT__counter_shift[1U] = __Vtemp_2[1U];
+    vlSelfRef.Simple__DOT__counter_shift[2U] = __Vtemp_2[2U];
+    vlSelfRef.Simple__DOT__counter_shift[3U] = __Vtemp_2[3U];
 }
 
 void VSimple___024root___eval_triggers__act(VSimple___024root* vlSelf);
