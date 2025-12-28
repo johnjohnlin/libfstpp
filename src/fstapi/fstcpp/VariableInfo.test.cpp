@@ -114,11 +114,14 @@ TEST(VariableInfoTest, DISABLED_DumpValueChange_10bitsBinary) {
                         "\x06\x02\x00"s);
 }
 
-TEST(VariableInfoTest, DumpValueChange_Long) {
+TEST(VariableInfoTest, DISABLED_DumpValueChange_LongBinary) {
     std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(70, false));
-    vi->EmitValueChange(0, (1ULL << 63) | 1);
+    vi->EmitValueChange(2, 0);
+    vi->EmitValueChange(5, (1ULL << 63) | 1);
     std::ostringstream os;
     EXPECT_THROW(vi->DumpValueChanges(os), std::runtime_error);
+    EXPECT_EQ(os.str(), "\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                        "\x06\x02\x00\x00\x00\x00\x00\x00\x00\x04"s);
 }
 
 TEST(VariableInfoTest, DumpValueChange_Double) {
