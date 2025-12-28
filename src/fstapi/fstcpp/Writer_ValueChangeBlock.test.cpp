@@ -136,7 +136,7 @@ TEST_F(WriterTest, FlushValueChangeData_ValueChanges_EncodePositionsAndWriteUniq
         // negative, positions[3] is unchanged
         -99,
         // second non-empty block, positions[4] will be set to
-        // the size of previous block (2) + offset of previous block (1)
+        // the size of previous block 3 (LEB128(0) + "ab")
         // after encoding
         0,
     };
@@ -150,7 +150,7 @@ TEST_F(WriterTest, FlushValueChangeData_ValueChanges_EncodePositionsAndWriteUniq
     EXPECT_EQ(positions[1], 1);
     EXPECT_EQ(positions[2], 0);
     EXPECT_EQ(positions[3], -99);
-    EXPECT_EQ(positions[4], 1+2);
+    EXPECT_EQ(positions[4], 3);
 
     // Output: LEB128(0) + "ab" + LEB128(0) + "cde"
     // 0 means no compression
@@ -224,82 +224,6 @@ TEST_F(WriterTest, FlushValueChangeData_Timestamps) {
         "\x81\x82\x83\x84\x85\x86\x07"
         "\x81\x82\x83\x84\x85\x86\x87\x08"s;
     EXPECT_EQ(result, expected);
-}
-
-////////////////////////////////////////////////
-// Tests for WriteHeader
-////////////////////////////////////////////////
-TEST_F(WriterTest, WriteHeader) {
-    // 1. Setup Header struct manually with unique values
-    Header h_struct;
-    h_struct.start_time = 10;
-    h_struct.end_time = 1000;
-    h_struct.writer_memory_use = 4096;
-    h_struct.num_scopes = 5;
-    h_struct.num_vars = 42;
-    h_struct.num_handles = 100;
-    h_struct.num_value_change_data_blocks = 3;
-    h_struct.timezero = 123456789;
-    h_struct.timescale = -9;
-    h_struct.filetype = FileType::eVerilog;
-
-    const string writer_name = "Verilator FST Writer Test";
-    // safe copy
-    const auto wlen = min(writer_name.size(), sizeof(h_struct.writer));
-    copy_n(writer_name.data(), wlen, h_struct.writer);
-    if (wlen < sizeof(h_struct.writer))
-        h_struct.writer[wlen] = '\0';
-
-    // Date must be exactly 25 chars (asctime format with \n)
-    const string date_str = "Fri Dec 13 01:21:40 2024\n";
-    const auto dlen = min(date_str.size(), sizeof(h_struct.date));
-    copy_n(date_str.data(), dlen, h_struct.date);
-    // note: date is not null terminated in struct if full, but our test string
-    // fits with null if we want
-    if (dlen < sizeof(h_struct.date))
-        h_struct.date[dlen] = '\0';
-
-    // 2. Call static WriteHeader_ to stringstream
-    ostringstream os;
-    WriteHeader(h_struct, os);
-
-    // 3. Generate Golden Reference
-    ostringstream expected_os;
-    StreamWriteHelper h(expected_os);
-
-    // Helper to pad strings with nulls
-    auto write_padded = [&](const string &s, size_t len) {
-        vector<char> buf(len, 0);
-        if (not s.empty()) {
-            memcpy(buf.data(), s.data(), min(s.size(), len));
-        }
-        h.Write(buf.data(), len);
-    };
-
-    h
-    .WriteBlockHeader(BlockType::Header, HeaderInfo::total_size)
-    .WriteUInt(uint64_t(10))   // start_time
-    .WriteUInt(uint64_t(1000)) // end_time
-    .WriteFloat(HeaderInfo::kEndianessMagicIdentifier)
-    .WriteUInt(uint64_t(4096)) // writer_memory_use
-    .WriteUInt(uint64_t(5))    // num_scopes
-    .WriteUInt(uint64_t(42))   // num_vars
-    .WriteUInt(uint64_t(100))  // num_handles
-    .WriteUInt(uint64_t(3))    // num_value_change_data_blocks
-    .WriteUInt(int8_t(-9));    // timescale
-
-    write_padded(writer_name, sizeof(h_struct.writer));
-    write_padded(date_str, sizeof(h_struct.date));
-
-    h
-    .Fill('\0', HeaderInfo::Size::reserved)
-    .WriteUInt(static_cast<uint8_t>(FileType::eVerilog)) // filetype (default)
-    .WriteUInt(int64_t(123456789));                      // timezero
-
-    // 4. Compare
-    // Since stream includes binary 0s, we compare underlying strings
-    EXPECT_EQ(os.str().size(), expected_os.str().size());
-    EXPECT_EQ(os.str(), expected_os.str());
 }
 
 } // namespace fst

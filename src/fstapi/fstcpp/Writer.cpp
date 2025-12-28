@@ -5,10 +5,12 @@
 #include <bit>
 #include <charconv>
 #include <iostream>
+#include <numeric>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 // Other libraries' .h files.
 #include <lz4.h>
@@ -239,11 +241,15 @@ struct VariableInfoScalarInt : public ValueChangeData::VariableInfoBase {
 		} else {
 			const T* value_ptr = value_changes.data();
 			value_ptr += static_cast<unsigned>(change_entries[0].encoding);
+			uint64_t prev_time_index = 0;
 			for (size_t i = 1; i < change_entries.size(); ++i) {
-				const bool all_binary = change_entries[i].encoding == EncodingType::eBinary;
-				uint64_t time_index = change_entries[i].time_index;
-				// TODO: what shall I write?
-				h.WriteLEB128(time_index << 1 | uint64_t(all_binary));
+				CHECK(change_entries[i].encoding == EncodingType::eBinary); // TODO
+				const bool has_non_binary = change_entries[i].encoding != EncodingType::eBinary;
+				const uint64_t delta_time_index = change_entries[i].time_index - prev_time_index;
+				prev_time_index = change_entries[i].time_index;
+				h
+				.WriteLEB128((delta_time_index << 1) | has_non_binary)
+				.WriteUIntPartialForValueChange(value_ptr[0], bitwidth);
 				value_ptr += static_cast<unsigned>(change_entries[i].encoding);
 			}
 		}
@@ -347,8 +353,37 @@ struct VariableInfoLongInt : public ValueChangeData::VariableInfoBase {
 	}
 
 	void DumpValueChanges(ostream &os) const override {
-		(void)os;
-		throw runtime_error("TODO: DumpValueChanges not implemented for VariableInfoLongInt");
+		StreamWriteHelper h(os);
+		const unsigned nw = num_words();
+		const uint64_t* value_ptr = value_changes.data();
+		value_ptr += static_cast<unsigned>(change_entries[0].encoding) * nw;
+		uint64_t prev_time_index = 0;
+		for (size_t i = 1; i < change_entries.size(); ++i) {
+			CHECK(change_entries[i].encoding == EncodingType::eBinary); // TODO
+			const bool has_non_binary = change_entries[i].encoding != EncodingType::eBinary;
+			const uint64_t delta_time_index = change_entries[i].time_index - prev_time_index;
+			prev_time_index = change_entries[i].time_index;
+			h
+			.WriteLEB128((delta_time_index << 1) | has_non_binary);
+			if (bitwidth % 64 != 0) {
+				const unsigned remaining = bitwidth % 64;
+				// from nw-1 to 1
+				for (unsigned j = nw-1; j > 0; --j) {
+					h.WriteUInt(
+						(value_ptr[j] << (64-remaining)) |
+						(value_ptr[j-1] >> remaining)
+					);
+				}
+				// 0
+				h.WriteUIntPartialForValueChange(value_ptr[0], remaining);
+			} else {
+				// Write from nw-1 to 0
+				for (unsigned j = nw; j-- > 0;) {
+					h.WriteUInt(value_ptr[j]);
+				}
+			}
+			value_ptr += static_cast<unsigned>(change_entries[i].encoding) * nw;
+		}
 	}
 };
 
@@ -578,7 +613,7 @@ void Writer::WriteHeader_(const Header& header, ostream& os) {
 
 	// Actual write
 	h
-	.Seek(streampos(0), ios_base::beg)
+	.Seek(streamoff(0), ios_base::beg)
 	.WriteBlockHeader(BlockType::Header, HeaderInfo::total_size)
 	.WriteUInt(header.start_time)
 	.WriteUInt(header.end_time)
@@ -766,10 +801,10 @@ uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
 	// After this function, positions[i] is:
 	//  - = 0: If variable i has no wave data
 	//  - < 0: The negative value from FlushValueChangeData_ValueChanges_UniquifyWaveData_, unchanged
-	//  - > 0: The cumulative offset (in bytes) in the output stream where this
-	//         variable's wave data block starts; the first block starts at offset 1.
+	//  - > 0: The size (in bytes) of the wave data block for *previous* variable,
+	//         the previous block size of the first block is 1 (required by FST spec).
 	StreamWriteHelper h(os);
-	int64_t previous_offset = 1;
+	int64_t previous_size = 1;
 	uint64_t written_count = 0;
 	for (size_t i = 0; i < positions.size(); ++i) {
 		if (positions[i] < 0) {
@@ -779,13 +814,14 @@ uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
 		} else {
 			// non-empty unique data, write it
 			written_count++;
-			// TODO: compress the data
+			std::streamoff bytes_written;
 			h
-			.WriteLEB128(0) // 0 means no compression
-			.Write(data[i].data(), data[i].size());
-			positions[i] = previous_offset;
-			// advance by the size of the compression flag (LEB128-encoded 0 == 1 byte) plus data
-			previous_offset += 1 + data[i].size();
+			.BeginOffset(bytes_written)
+			.WriteLEB128(0) // 0 means no compression (TODO: implement compression)
+			.Write(data[i].data(), data[i].size())
+			.EndOffset(&bytes_written);
+			positions[i] = previous_size;
+			previous_size = bytes_written;
 		}
 	}
 	return written_count;
@@ -853,18 +889,21 @@ void Writer::FlushValueChangeData_(const detail::ValueChangeData& vcd, ostream& 
 
 	// 0. Setup
 	StreamWriteHelper h(os);
-	const auto start_pos = os.tellp();
 
 	// 1. Write Block Header & Global Fields (start/end/mem_req placeholder)
 	// FST_BL_VCDATA_DYN_ALIAS2 (8) maps to WaveDataVersion3 in fst_file.hpp
-	h
-	.WriteBlockHeader(BlockType::WaveDataVersion3, 0 /* Length placeholder 0 */)
-	.WriteUInt(vcd.first_timestamp)
-	.WriteUInt(vcd.current_timestamp());
-
-	// Placeholder for memory_required (u64)
-	uint64_t memory_required = 0; // TODO
-	h.WriteUInt(memory_required);
+	// The positions we cannot fill in yet
+	const auto [start_pos, memory_usage_pos] = [&]() {
+		streamoff start_pos, memory_usage_pos;
+		h
+		.BeginOffset(start_pos) // record start position
+		.WriteBlockHeader(BlockType::WaveDataVersion3, 0 /* Length placeholder 0 */)
+		.WriteUInt(vcd.first_timestamp)
+		.WriteUInt(vcd.current_timestamp())
+		.BeginOffset(memory_usage_pos) // record memory usage position
+		.WriteUInt<uint64_t>(0); // placeholder for memory usage
+		return make_pair(start_pos, memory_usage_pos);
+	}();
 
 	// 2. Bits Section
 	// Generate, Compress, Write
@@ -886,24 +925,29 @@ void Writer::FlushValueChangeData_(const detail::ValueChangeData& vcd, ostream& 
 	// 3. Waves Section
 	// Generate (Compute/Uniquify/Encode), Write
 	// Note: We need positions for the next section
-	auto positions = [&]() {
+	const auto [positions, memory_usage] = [&]() {
 		auto wave_data = vcd.ComputeWaveData();
 		auto positions = vcd.UniquifyWaveData(wave_data);
+		const size_t memory_usage = accumulate(
+			wave_data.begin(), wave_data.end(), size_t(0),
+			[](size_t a, const auto& b) { return a + b.size();
+		});
 		stringstream ss;
 		const uint64_t count = detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(ss, wave_data, positions);
+		(void)count;
 		string raw = ss.str();
-		// No whole-block compression for waves yet (per previous code), treating as raw/LZ4-ready?
-		// Previous code wrote '4' (LZ4) but raw data. Keeping consistent with previous edit:
-		// .WriteUInt(uint8_t('4')) + raw data.
-		// NOTE: Ideally we should compress if we say '4'. But user code had '4'.
-		// The helper writes uncompressed per-wave data (for now).
-		// We'll write the buffer content.
-
+		// NOTE: While we write '4' for LZ4, we write uncompressed data.
+		// For each wavedata, if it's `uncompressed_length == 0`,
+		// then it is uncompressed, which effectively disables compression.
+		// This is what we do for now.
 		h
-		.WriteLEB128(count)
+		// Note: this is not a typo, I expect we shall write count here.
+		// but the spec indeed write vcd.variable_infos.size(),
+		// which is repeated 1 times in header block, 2 times in valuechange block
+		.WriteLEB128(vcd.variable_infos.size())
 		.WriteUInt(uint8_t('4'))
 		.Write(raw.data(), raw.size());
-		return positions;
+		return make_pair(positions, memory_usage);
 	}();
 
 	// 4. Position Section
@@ -931,16 +975,18 @@ void Writer::FlushValueChangeData_(const detail::ValueChangeData& vcd, ostream& 
 	}
 
 	// 6. Patch Block Length and Memory Required
-	const auto block_end = os.tellp();
-	const uint64_t block_len = block_end - start_pos;
-
-	// Patch Block Length (after 1 byte Type)
+	streamoff end_pos;
 	h
-	.Seek(start_pos + std::streamoff(1), ios_base::beg)
-	.WriteUInt(block_len - 1);
-
+	.BeginOffset(end_pos)
+	// Patch Block Length (after 1 byte Type)
+	.Seek(start_pos + streamoff(1), ios_base::beg)
+	.WriteUInt<uint64_t>(end_pos - start_pos - 1)
+	// Patch Memory Required
+	// TODO: *1.5 since we are not sure whether we compute memory usage correctly
+	.Seek(memory_usage_pos, ios_base::beg)
+	.WriteUInt<uint64_t>(memory_usage*3/2)
 	// Restore position to end
-	h.Seek(block_end, ios_base::beg);
+	.Seek(end_pos, ios_base::beg);
 }
 
 } // namespace fst

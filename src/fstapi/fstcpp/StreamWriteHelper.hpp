@@ -34,12 +34,30 @@ struct StreamWriteHelper {
 	StreamWriteHelper(std::ostream& os_) : os(&os_) {}
 	StreamWriteHelper(std::ostream* os_) : os(os_) {}
 
+	// Write the entire uint, big-endian
+	// We do not provide little-endian version since FST only uses big-endian
 	template<typename U>
 	StreamWriteHelper& WriteUInt(U u) {
 		if constexpr (std::endian::native == std::endian::little) {
 			u = platform::byteswap(u);
 		}
 		os->write(reinterpret_cast<const char*>(&u), sizeof(u));
+		return *this;
+	}
+
+	// Write the uint, big-endian, left-aligned but only (bitwidth+7)/8 bytes
+	// This is a very special case for value changes
+	// For example, if the value is 10-bits (e.g. logic [9:0] in Verilog),
+	// then the first byte will be [9-:8], then {[1:0], 6'b0}.
+	template<typename U>
+	StreamWriteHelper& WriteUIntPartialForValueChange(U u, size_t bitwidth) {
+		// Shift left to align the MSB to the MSB of the uint
+		u <<= sizeof(u) * 8 - bitwidth;
+		// Write the first (bitwidth+7)/8 bytes
+		if constexpr (std::endian::native == std::endian::little) {
+			u = platform::byteswap(u);
+		}
+		os->write(reinterpret_cast<const char*>(&u), (bitwidth + 7) / 8);
 		return *this;
 	}
 
@@ -110,7 +128,7 @@ struct StreamWriteHelper {
 		return *this;
 	}
 
-	StreamWriteHelper& Seek(std::streampos pos, std::ios_base::seekdir dir) {
+	StreamWriteHelper& Seek(std::streamoff pos, std::ios_base::seekdir dir) {
 		os->seekp(pos, dir);
 		return *this;
 	}
@@ -132,6 +150,43 @@ struct StreamWriteHelper {
 		return *this;
 	}
 
+	// Handy functions for writing variable length data, you can
+	// cascade multiple Write() calls after RecordOffset(), then
+	// call DiffOffset() to get the total number of bytes written.
+
+	// (1)
+	// std::streamoff diff;
+	// h
+	// .BeginOffset(diff)
+	// .Write(...)
+	// ... do other stuff ...
+	// .EndOffset(&diff); <-- diff will be set to the number of bytes written
+	// (2)
+	// std::streamoff pos, diff;
+	// h
+	// .BeginOffset(pos)
+	// .Write(...)
+	// ... do other stuff ...
+	// .EndOffset(&diff, pos); <-- diff will be set to the number of bytes written
+
+	// The API uses pointer on purpose to prevent you pass (pos, diff) as arguments
+	// to EndOffset(), which is a common mistake.
+
+	StreamWriteHelper& BeginOffset(std::streamoff& pos) {
+		pos = os->tellp();
+		return *this;
+	}
+
+	StreamWriteHelper& EndOffset(std::streamoff* diff) {
+		// diff shall store previous position before calling this function
+		*diff = os->tellp() - *diff;
+		return *this;
+	}
+
+	StreamWriteHelper& EndOffset(std::streamoff* diff, std::streamoff pos) {
+		*diff = os->tellp() - pos;
+		return *this;
+	}
 };
 
 } // namespace fst

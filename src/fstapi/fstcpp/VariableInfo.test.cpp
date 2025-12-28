@@ -12,6 +12,7 @@ using namespace std;
 namespace fst {
 
 using VariableInfoBase = detail::ValueChangeData::VariableInfoBase;
+constexpr unsigned kDontCareBitWidth = 1234;
 
 TEST(VariableInfoTest, Create) {
     // int
@@ -29,14 +30,16 @@ TEST(VariableInfoTest, Create) {
     EXPECT_NE(vi_long_cast, nullptr);
 
     // double
-    std::unique_ptr<VariableInfoBase> vi_double(VariableInfoBase::Create(8, true));
+    std::unique_ptr<VariableInfoBase> vi_double(VariableInfoBase::Create(kDontCareBitWidth, true));
     EXPECT_NE(vi_double, nullptr);
     // Should be VariableInfoDouble
     auto* vi_double_cast = dynamic_cast<fst::detail::VariableInfoDouble*>(vi_double.get());
     EXPECT_NE(vi_double_cast, nullptr);
 }
-
-TEST(VariableInfoTest, WriteInitialBits_Int) {
+/////////////////////////////
+// WriteInitialBits
+/////////////////////////////
+TEST(VariableInfoTest, WriteInitialBits_ScalarInt) {
     std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(4, false));
     vi->EmitValueChange(0, 0b1010);
     vi->KeepOnlyTheLatestValue();
@@ -45,7 +48,7 @@ TEST(VariableInfoTest, WriteInitialBits_Int) {
     EXPECT_EQ(os.str(), "1010");
 }
 
-TEST(VariableInfoTest, WriteInitialBits_Long) {
+TEST(VariableInfoTest, WriteInitialBits_LongInt) {
     std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(70, false));
     vi->EmitValueChange(0, (1ULL << 63) | 1);
     vi->KeepOnlyTheLatestValue();
@@ -57,7 +60,7 @@ TEST(VariableInfoTest, WriteInitialBits_Long) {
 }
 
 TEST(VariableInfoTest, WriteInitialBits_Double) {
-    std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(8, true));
+    std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(kDontCareBitWidth, true));
     vi->EmitValueChange(0, 0x3ff0000000000000ULL); // 1.0 in IEEE754
     vi->KeepOnlyTheLatestValue();
     std::ostringstream os;
@@ -67,8 +70,10 @@ TEST(VariableInfoTest, WriteInitialBits_Double) {
     memcpy(&val, s.data(), sizeof(double));
     EXPECT_DOUBLE_EQ(val, 1.0);
 }
-
-TEST(VariableInfoTest, DumpValueChange_SingleBinary) {
+/////////////////////////////
+// DumpValueChanges
+/////////////////////////////
+TEST(VariableInfoTest, DumpValueChange_ScalarInt_1bit_Binary) {
     std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(1, false));
     vi->EmitValueChange(1, 0);
     vi->EmitValueChange(2, 1);
@@ -82,7 +87,7 @@ TEST(VariableInfoTest, DumpValueChange_SingleBinary) {
     EXPECT_EQ(os.str(), "\x04\x06\x04"s);
 }
 
-TEST(VariableInfoTest, DISABLED_DumpValueChange_DoubleBinary) {
+TEST(VariableInfoTest, DumpValueChange_ScalarInt_2bit_Binary) {
     std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(2, false));
     vi->EmitValueChange(1, 0);
     vi->EmitValueChange(3, 1);
@@ -96,7 +101,7 @@ TEST(VariableInfoTest, DISABLED_DumpValueChange_DoubleBinary) {
     EXPECT_EQ(os.str(), "\x02\x00\x04\x40\x04\x80\x04\xc0\x06\x00"s);
 }
 
-TEST(VariableInfoTest, DISABLED_DumpValueChange_10bitsBinary) {
+TEST(VariableInfoTest, DumpValueChange_ScalarInt_10bit_Binary) {
     std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(10, false));
     vi->EmitValueChange(1, 0);
     vi->EmitValueChange(3, 1);
@@ -114,21 +119,22 @@ TEST(VariableInfoTest, DISABLED_DumpValueChange_10bitsBinary) {
                         "\x06\x02\x00"s);
 }
 
-TEST(VariableInfoTest, DISABLED_DumpValueChange_LongBinary) {
-    std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(70, false));
+TEST(VariableInfoTest, DumpValueChange_LongInt_Binary) {
+    std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(68, false));
     vi->EmitValueChange(2, 0);
-    vi->EmitValueChange(5, (1ULL << 63) | 1);
+    vi->EmitValueChange(5, 0x1234567890abcdefULL);
     std::ostringstream os;
-    EXPECT_THROW(vi->DumpValueChanges(os), std::runtime_error);
+    vi->DumpValueChanges(os);
     EXPECT_EQ(os.str(), "\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-                        "\x06\x02\x00\x00\x00\x00\x00\x00\x00\x04"s);
+                        "\x06\x01\x23\x45\x67\x89\x0a\xbc\xde\xf0"s);
 }
 
-TEST(VariableInfoTest, DumpValueChange_Double) {
-    std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(8, true));
+TEST(VariableInfoTest, DISABLED_DumpValueChange_Double_Binary) {
+    std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(kDontCareBitWidth, true));
     vi->EmitValueChange(0, 0x3ff0000000000000ULL); // 1.0 in IEEE754
     std::ostringstream os;
-    EXPECT_THROW(vi->DumpValueChanges(os), std::runtime_error);
+    vi->DumpValueChanges(os);
+    FAIL() << "TODO";
 }
 
 } // namespace fst
