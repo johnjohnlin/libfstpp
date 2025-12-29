@@ -140,16 +140,45 @@ struct VariableInfoScalarInt : public ValueChangeData::VariableInfoBase {
 		change_entries[0].encoding = EncodingType::eVerilog;
 	}
 
-	void EmitValueChange(uint64_t current_time_index, const uint64_t val) override {
+private:
+	void EmitValueChangeCommonPart(uint64_t current_time_index, EncodingType encoding) {
 		if (current_time_index+1 == 0) {
 			// This is the first value change, we need to remove everything
 			// and then add the new value
 			change_entries.resize(0);
 			value_changes.resize(0);
 		}
-		change_entries.push_back({current_time_index, EncodingType::eBinary});
+		change_entries.push_back({current_time_index, encoding});
+	}
+
+public:
+	void EmitValueChange(uint64_t current_time_index, const uint64_t val) override {
+		EmitValueChangeCommonPart(current_time_index, EncodingType::eBinary);
 		value_changes.push_back(val);
-	};
+	}
+
+	void EmitValueChange(uint64_t current_time_index, const uint32_t* val, EncodingType encoding) override {
+		EmitValueChangeCommonPart(current_time_index, encoding);
+		for (unsigned i = 0; i < static_cast<unsigned>(encoding); ++i) {
+			if constexpr (sizeof(T) == 8) {
+				uint64_t v = val[1]; // high bits
+				v <<= 32;
+				v |= val[0]; // low bits
+				value_changes.push_back(v);
+				val += 2;
+			} else {
+				value_changes.push_back(val[0]);
+				val += 1;
+			}
+		}
+	}
+
+	void EmitValueChange(uint64_t current_time_index, const uint64_t* val, EncodingType encoding) override {
+		EmitValueChangeCommonPart(current_time_index, encoding);
+		for (unsigned i = 0; i < static_cast<unsigned>(encoding); ++i) {
+			value_changes.push_back(val[i]);
+		}
+	}
 
 	void KeepOnlyTheLatestValue() override {
 		change_entries.front().encoding = change_entries.back().encoding;
@@ -269,14 +298,20 @@ struct VariableInfoLongInt : public ValueChangeData::VariableInfoBase {
 		change_entries[0].encoding = EncodingType::eVerilog;
 	}
 
-	void EmitValueChange(uint64_t current_time_index, const uint64_t val) override {
+private:
+	void EmitValueChangeCommonPart(uint64_t current_time_index, EncodingType encoding) {
 		if (current_time_index+1 == 0) {
 			// This is the first value change, we need to remove everything
 			// and then add the new value
 			change_entries.resize(0);
 			value_changes.resize(0);
 		}
-		change_entries.push_back({current_time_index, EncodingType::eBinary});
+		change_entries.push_back({current_time_index, encoding});
+	}
+
+public:
+	void EmitValueChange(uint64_t current_time_index, const uint64_t val) override {
+		EmitValueChangeCommonPart(current_time_index, EncodingType::eBinary);
 		value_changes.push_back(val);
 		// LongInt requires more numbers of words to represent a full value
 		for (unsigned i = 0; i < num_words() - 1; ++i) {
@@ -284,14 +319,28 @@ struct VariableInfoLongInt : public ValueChangeData::VariableInfoBase {
 		}
 	}
 
-	void EmitValueChange(uint64_t current_time_index, const uint64_t *val, EncodingType encoding) override {
-		if (current_time_index+1 == 0) {
-			// This is the first value change (so, we need to remove everything
-			// and then add the new value
-			change_entries.resize(0);
-			value_changes.resize(0);
+	void EmitValueChange(uint64_t current_time_index, const uint32_t *val, EncodingType encoding) override {
+		EmitValueChangeCommonPart(current_time_index, encoding);
+		// 32 bit is not the native encoding for LongInt
+		// value_changes is vector<uint64_t>
+		const unsigned nw = (bitwidth + 31) / 32;
+		for (unsigned i = 0; i < static_cast<unsigned>(encoding); ++i) {
+			for (unsigned j = 0; j < nw/2; ++j) {
+				uint64_t v = val[1]; // high bits
+				v <<= 32;
+				v |= val[0]; // low bits
+				value_changes.push_back(v);
+				val += 2;
+			}
+			if (nw % 2 != 0) {
+				value_changes.push_back(val[0]);
+				val += 1;
+			}
 		}
-		change_entries.push_back({current_time_index, encoding});
+	}
+
+	void EmitValueChange(uint64_t current_time_index, const uint64_t *val, EncodingType encoding) override {
+		EmitValueChangeCommonPart(current_time_index, encoding);
 		value_changes.insert(value_changes.end(), val, val + num_words() * static_cast<unsigned>(encoding));
 	}
 
@@ -610,6 +659,8 @@ void Writer::EmitValueChange(Handle handle, const char *val) {
 /////////////////////////////////////////
 void Writer::WriteHeader_(const Header& header, ostream& os) {
 	StreamWriteHelper h(os);
+	static char kDefaultWriterName[sizeof(header.writer)] = "fstcppWriter";
+	const char* writer_name = header.writer[0] == '\0' ? kDefaultWriterName : header.writer;
 
 	// Actual write
 	h
@@ -624,7 +675,7 @@ void Writer::WriteHeader_(const Header& header, ostream& os) {
 	.WriteUInt(header.num_handles)
 	.WriteUInt(header.num_value_change_data_blocks)
 	.WriteUInt(header.timescale)
-	.Write(header.writer, sizeof(header.writer))
+	.Write(writer_name, sizeof(header.writer))
 	.Write(header.date, sizeof(header.date))
 	.Fill('\0', HeaderInfo::Size::reserved)
 	.WriteUInt(static_cast<uint8_t>(header.filetype))
