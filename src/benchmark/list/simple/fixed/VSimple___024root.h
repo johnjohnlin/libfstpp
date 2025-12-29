@@ -19,12 +19,11 @@ class alignas(VL_CACHE_LINE_BYTES) VSimple___024root final : public VerilatedMod
     CData/*1:0*/ Simple__DOT__counter_add;
     CData/*0:0*/ __Vtrigprevexpr___TOP__clk__0;
     CData/*0:0*/ __Vtrigprevexpr___TOP__rst_n__0;
-    CData/*0:0*/ __VactContinue;
     VlWide<4>/*126:0*/ Simple__DOT__counter_shift;
     IData/*31:0*/ __VactIterCount;
+    VlUnpacked<QData/*63:0*/, 1> __VactTriggered;
+    VlUnpacked<QData/*63:0*/, 1> __VnbaTriggered;
     VlUnpacked<CData/*0:0*/, 2> __Vm_traceActivity;
-    VlTriggerVec<2> __VactTriggered;
-    VlTriggerVec<2> __VnbaTriggered;
 
     // INTERNAL VARIABLES
     VSimple__Syms* const vlSymsp;
