@@ -8,11 +8,10 @@ void Vpicorv32_wrapper___024root__trace_chg_0_sub_0(Vpicorv32_wrapper___024root*
 
 void Vpicorv32_wrapper___024root__trace_chg_0(void* voidSelf, VerilatedFst::Buffer* bufp) {
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vpicorv32_wrapper___024root__trace_chg_0\n"); );
-    // Init
+    // Body
     Vpicorv32_wrapper___024root* const __restrict vlSelf VL_ATTR_UNUSED = static_cast<Vpicorv32_wrapper___024root*>(voidSelf);
     Vpicorv32_wrapper__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     if (VL_UNLIKELY(!vlSymsp->__Vm_activity)) return;
-    // Body
     Vpicorv32_wrapper___024root__trace_chg_0_sub_0((&vlSymsp->TOP), bufp);
 }
 
@@ -20,9 +19,8 @@ void Vpicorv32_wrapper___024root__trace_chg_0_sub_0(Vpicorv32_wrapper___024root*
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vpicorv32_wrapper___024root__trace_chg_0_sub_0\n"); );
     Vpicorv32_wrapper__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     auto& vlSelfRef = std::ref(*vlSelf).get();
-    // Init
-    uint32_t* const oldp VL_ATTR_UNUSED = bufp->oldp(vlSymsp->__Vm_baseCode + 1);
     // Body
+    uint32_t* const oldp VL_ATTR_UNUSED = bufp->oldp(vlSymsp->__Vm_baseCode + 1);
     if (VL_UNLIKELY((vlSelfRef.__Vm_traceActivity[0U]))) {
         bufp->chgWData(oldp+0,(vlSymsp->TOP__picorv32_wrapper.__PVT__firmware_file),1024);
         bufp->chgBit(oldp+32,(vlSymsp->TOP__picorv32_wrapper__mem.__PVT__verbose));
@@ -157,8 +155,8 @@ void Vpicorv32_wrapper___024root__trace_chg_0_sub_0(Vpicorv32_wrapper___024root*
         bufp->chgBit(oldp+162,(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__pcpi_div_ready));
         bufp->chgBit(oldp+163,(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__pcpi_int_wr));
         bufp->chgIData(oldp+164,(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__pcpi_int_rd),32);
-        bufp->chgBit(oldp+165,(((IData)(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__pcpi_mul_wait) 
-                                | (IData)(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__pcpi_div_wait))));
+        bufp->chgBit(oldp+165,(((IData)(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__pcpi_div_wait) 
+                                | (IData)(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__pcpi_mul_wait))));
         bufp->chgBit(oldp+166,(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__pcpi_int_ready));
         bufp->chgCData(oldp+167,(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__mem_wordsize),2);
         bufp->chgIData(oldp+168,(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__mem_rdata_q),32);
@@ -282,17 +280,17 @@ void Vpicorv32_wrapper___024root__trace_chg_0_sub_0(Vpicorv32_wrapper___024root*
                                    : (vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__reg_op1 
                                       + vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__reg_op2))),32);
         bufp->chgIData(oldp+286,((vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__reg_op1 
-                                  << (0x1fU & vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__reg_op2))),32);
-        bufp->chgIData(oldp+287,((IData)((0x1ffffffffULL 
+                                  << (0x0000001fU & vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__reg_op2))),32);
+        bufp->chgIData(oldp+287,((IData)((0x00000001ffffffffULL 
                                           & VL_SHIFTRS_QQI(33,33,5, 
                                                            (((QData)((IData)(
                                                                              (((IData)(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__instr_sra) 
                                                                                | (IData)(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__instr_srai)) 
                                                                               & (vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__reg_op1 
-                                                                                >> 0x1fU)))) 
-                                                             << 0x20U) 
+                                                                                >> 0x0000001fU)))) 
+                                                             << 0x00000020U) 
                                                             | (QData)((IData)(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__reg_op1))), 
-                                                           (0x1fU 
+                                                           (0x0000001fU 
                                                             & vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__reg_op2))))),32);
         bufp->chgBit(oldp+288,(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__alu_eq));
         bufp->chgBit(oldp+289,(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__alu_ltu));
@@ -331,7 +329,7 @@ void Vpicorv32_wrapper___024root__trace_chg_0_sub_0(Vpicorv32_wrapper___024root*
         bufp->chgBit(oldp+318,(vlSymsp->TOP__picorv32_wrapper__mem.__PVT__mem_axi_bvalid));
         bufp->chgBit(oldp+319,(vlSymsp->TOP__picorv32_wrapper__mem.__PVT__mem_axi_arready));
         bufp->chgBit(oldp+320,(vlSymsp->TOP__picorv32_wrapper__mem.__PVT__mem_axi_rvalid));
-        bufp->chgBit(oldp+321,(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__mem_ready));
+        bufp->chgBit(oldp+321,(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__mem_ready));
         bufp->chgBit(oldp+322,(vlSymsp->TOP__picorv32_wrapper__mem.__PVT__fast_raddr));
         bufp->chgBit(oldp+323,(vlSymsp->TOP__picorv32_wrapper__mem.__PVT__fast_waddr));
         bufp->chgBit(oldp+324,(vlSymsp->TOP__picorv32_wrapper__mem.__PVT__fast_wdata));
@@ -342,7 +340,7 @@ void Vpicorv32_wrapper___024root__trace_chg_0_sub_0(Vpicorv32_wrapper___024root*
     bufp->chgBit(oldp+328,(vlSelfRef.trace_valid));
     bufp->chgQData(oldp+329,(vlSelfRef.trace_data),36);
     bufp->chgBit(oldp+331,(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__mem_la_write));
-    bufp->chgIData(oldp+332,(((IData)(vlSymsp->TOP__picorv32_wrapper.uut__DOT__picorv32_core__DOT____VdfgRegularize_hc635ebbb_0_0)
+    bufp->chgIData(oldp+332,(((IData)(vlSymsp->TOP__picorv32_wrapper.uut__DOT__picorv32_core__DOT____VdfgRegularize_had7d1046_0_0)
                                ? (((vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__next_pc 
                                     >> 2U) + (IData)(vlSymsp->TOP__picorv32_wrapper.__PVT__uut__DOT__picorv32_core__DOT__mem_la_firstword_xfer)) 
                                   << 2U) : (0xfffffffcU 
@@ -356,10 +354,9 @@ void Vpicorv32_wrapper___024root__trace_chg_0_sub_0(Vpicorv32_wrapper___024root*
 
 void Vpicorv32_wrapper___024root__trace_cleanup(void* voidSelf, VerilatedFst* /*unused*/) {
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vpicorv32_wrapper___024root__trace_cleanup\n"); );
-    // Init
+    // Body
     Vpicorv32_wrapper___024root* const __restrict vlSelf VL_ATTR_UNUSED = static_cast<Vpicorv32_wrapper___024root*>(voidSelf);
     Vpicorv32_wrapper__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
-    // Body
     vlSymsp->__Vm_activity = false;
     vlSymsp->TOP.__Vm_traceActivity[0U] = 0U;
     vlSymsp->TOP.__Vm_traceActivity[1U] = 0U;

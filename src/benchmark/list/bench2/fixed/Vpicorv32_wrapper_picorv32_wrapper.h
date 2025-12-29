@@ -35,11 +35,11 @@ class alignas(VL_CACHE_LINE_BYTES) Vpicorv32_wrapper_picorv32_wrapper final : pu
         CData/*0:0*/ __PVT__uut__DOT__mem_valid;
         CData/*3:0*/ __PVT__uut__DOT__mem_wstrb;
         CData/*0:0*/ __PVT__uut__DOT__mem_instr;
-        CData/*0:0*/ __PVT__uut__DOT__mem_ready;
         CData/*0:0*/ __PVT__uut__DOT__axi_adapter__DOT__ack_awvalid;
         CData/*0:0*/ __PVT__uut__DOT__axi_adapter__DOT__ack_arvalid;
         CData/*0:0*/ __PVT__uut__DOT__axi_adapter__DOT__ack_wvalid;
         CData/*0:0*/ __PVT__uut__DOT__axi_adapter__DOT__xfer_done;
+        CData/*0:0*/ __PVT__uut__DOT__picorv32_core__DOT__mem_ready;
         CData/*0:0*/ __PVT__uut__DOT__picorv32_core__DOT__mem_la_read;
         CData/*0:0*/ __PVT__uut__DOT__picorv32_core__DOT__mem_la_write;
         CData/*3:0*/ __PVT__uut__DOT__picorv32_core__DOT__mem_la_wstrb;
@@ -187,7 +187,7 @@ class alignas(VL_CACHE_LINE_BYTES) Vpicorv32_wrapper_picorv32_wrapper final : pu
         CData/*0:0*/ __PVT__uut__DOT__picorv32_core__DOT__alu_lts;
         CData/*0:0*/ __PVT__uut__DOT__picorv32_core__DOT__clear_prefetched_high_word_q;
         CData/*0:0*/ __PVT__uut__DOT__picorv32_core__DOT__cpuregs_write;
-        CData/*0:0*/ uut__DOT__picorv32_core__DOT____VdfgRegularize_hc635ebbb_0_0;
+        CData/*0:0*/ uut__DOT__picorv32_core__DOT____VdfgRegularize_had7d1046_0_0;
         CData/*0:0*/ __PVT__uut__DOT__picorv32_core__DOT__genblk1__DOT__pcpi_mul__DOT__instr_mul;
         CData/*0:0*/ __PVT__uut__DOT__picorv32_core__DOT__genblk1__DOT__pcpi_mul__DOT__instr_mulh;
         CData/*0:0*/ __PVT__uut__DOT__picorv32_core__DOT__genblk1__DOT__pcpi_mul__DOT__instr_mulhsu;
@@ -274,7 +274,7 @@ class alignas(VL_CACHE_LINE_BYTES) Vpicorv32_wrapper_picorv32_wrapper final : pu
         IData/*31:0*/ __PVT__uut__DOT__picorv32_core__DOT__cpuregs_wrdata;
         IData/*31:0*/ __PVT__uut__DOT__picorv32_core__DOT__cpuregs_rs1;
         IData/*31:0*/ __PVT__uut__DOT__picorv32_core__DOT__cpuregs_rs2;
-        IData/*31:0*/ uut__DOT__picorv32_core__DOT____Vlvbound_h4b61579e__0;
+        IData/*31:0*/ uut__DOT__picorv32_core__DOT____Vlvbound_heacebfa6__0;
         IData/*31:0*/ __PVT__uut__DOT__picorv32_core__DOT__genblk2__DOT__pcpi_div__DOT__dividend;
         IData/*31:0*/ __PVT__uut__DOT__picorv32_core__DOT__genblk2__DOT__pcpi_div__DOT__quotient;
         IData/*31:0*/ __PVT__uut__DOT__picorv32_core__DOT__genblk2__DOT__pcpi_div__DOT__quotient_msk;

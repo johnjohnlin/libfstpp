@@ -21,8 +21,8 @@ Vpicorv32_wrapper__Syms::Vpicorv32_wrapper__Syms(VerilatedContext* contextp, con
     , TOP__picorv32_wrapper{this, Verilated::catName(namep, "picorv32_wrapper")}
     , TOP__picorv32_wrapper__mem{this, Verilated::catName(namep, "picorv32_wrapper.mem")}
 {
-        // Check resources
-        Verilated::stackCheck(139);
+    // Check resources
+    Verilated::stackCheck(352);
     // Configure time unit / time precision
     _vm_contextp__->timeunit(-9);
     _vm_contextp__->timeprecision(-12);

@@ -3,8 +3,6 @@
 // See Vpicorv32_wrapper.h for the primary calling header
 
 #include "Vpicorv32_wrapper__pch.h"
-#include "Vpicorv32_wrapper__Syms.h"
-#include "Vpicorv32_wrapper___024root.h"
 
 void Vpicorv32_wrapper___024root___ctor_var_reset(Vpicorv32_wrapper___024root* vlSelf);
 
