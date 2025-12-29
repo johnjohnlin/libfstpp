@@ -3,8 +3,6 @@
 // See VRSA_tb.h for the primary calling header
 
 #include "VRSA_tb__pch.h"
-#include "VRSA_tb__Syms.h"
-#include "VRSA_tb___024unit.h"
 
 void VRSA_tb___024unit___ctor_var_reset(VRSA_tb___024unit* vlSelf);
 

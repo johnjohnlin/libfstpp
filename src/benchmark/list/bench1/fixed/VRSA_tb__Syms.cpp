@@ -18,8 +18,8 @@ VRSA_tb__Syms::VRSA_tb__Syms(VerilatedContext* contextp, const char* namep, VRSA
     // Setup module instances
     , TOP{this, namep}
 {
-        // Check resources
-        Verilated::stackCheck(1188);
+    // Check resources
+    Verilated::stackCheck(1384);
     // Configure time unit / time precision
     _vm_contextp__->timeunit(-12);
     _vm_contextp__->timeprecision(-12);
