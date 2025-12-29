@@ -22,9 +22,9 @@
 
 /// Verilator version name, e.g. "1.002 2000-01-01"
 // Autoconf substitutes this with the strings from AC_INIT.
-#define VERILATOR_VERSION "5.036 2025-04-27"
+#define VERILATOR_VERSION "5.042 2025-11-02"
 
 /// Verilator version number as integer
 /// As major * 100000 + minor * 1000, e.g. 1002000 == 1.002
 // Autoconf substitutes this with the strings from AC_INIT.
-#define VERILATOR_VERSION_INTEGER 5036000
+#define VERILATOR_VERSION_INTEGER 5042000

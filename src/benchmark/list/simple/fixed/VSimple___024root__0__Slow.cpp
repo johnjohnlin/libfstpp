@@ -3,7 +3,6 @@
 // See VSimple.h for the primary calling header
 
 #include "VSimple__pch.h"
-#include "VSimple___024root.h"
 
 VL_ATTR_COLD void VSimple___024root___eval_static(VSimple___024root* vlSelf) {
     VL_DEBUG_IF(VL_DBG_MSGF("+    VSimple___024root___eval_static\n"); );
@@ -32,38 +31,20 @@ VL_ATTR_COLD void VSimple___024root___eval_settle(VSimple___024root* vlSelf) {
     auto& vlSelfRef = std::ref(*vlSelf).get();
 }
 
-#ifdef VL_DEBUG
-VL_ATTR_COLD void VSimple___024root___dump_triggers__act(VSimple___024root* vlSelf) {
-    VL_DEBUG_IF(VL_DBG_MSGF("+    VSimple___024root___dump_triggers__act\n"); );
-    VSimple__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
-    auto& vlSelfRef = std::ref(*vlSelf).get();
-    // Body
-    if ((1U & (~ vlSelfRef.__VactTriggered.any()))) {
-        VL_DBG_MSGF("         No triggers active\n");
-    }
-    if ((1ULL & vlSelfRef.__VactTriggered.word(0U))) {
-        VL_DBG_MSGF("         'act' region trigger index 0 is active: @(posedge clk)\n");
-    }
-    if ((2ULL & vlSelfRef.__VactTriggered.word(0U))) {
-        VL_DBG_MSGF("         'act' region trigger index 1 is active: @(negedge rst_n)\n");
-    }
-}
-#endif  // VL_DEBUG
+bool VSimple___024root___trigger_anySet__act(const VlUnpacked<QData/*63:0*/, 1> &in);
 
 #ifdef VL_DEBUG
-VL_ATTR_COLD void VSimple___024root___dump_triggers__nba(VSimple___024root* vlSelf) {
-    VL_DEBUG_IF(VL_DBG_MSGF("+    VSimple___024root___dump_triggers__nba\n"); );
-    VSimple__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
-    auto& vlSelfRef = std::ref(*vlSelf).get();
+VL_ATTR_COLD void VSimple___024root___dump_triggers__act(const VlUnpacked<QData/*63:0*/, 1> &triggers, const std::string &tag) {
+    VL_DEBUG_IF(VL_DBG_MSGF("+    VSimple___024root___dump_triggers__act\n"); );
     // Body
-    if ((1U & (~ vlSelfRef.__VnbaTriggered.any()))) {
-        VL_DBG_MSGF("         No triggers active\n");
+    if ((1U & (~ (IData)(VSimple___024root___trigger_anySet__act(triggers))))) {
+        VL_DBG_MSGS("         No '" + tag + "' region triggers active\n");
     }
-    if ((1ULL & vlSelfRef.__VnbaTriggered.word(0U))) {
-        VL_DBG_MSGF("         'nba' region trigger index 0 is active: @(posedge clk)\n");
+    if ((1U & (IData)(triggers[0U]))) {
+        VL_DBG_MSGS("         '" + tag + "' region trigger index 0 is active: @(posedge clk)\n");
     }
-    if ((2ULL & vlSelfRef.__VnbaTriggered.word(0U))) {
-        VL_DBG_MSGF("         'nba' region trigger index 1 is active: @(negedge rst_n)\n");
+    if ((1U & (IData)((triggers[0U] >> 1U)))) {
+        VL_DBG_MSGS("         '" + tag + "' region trigger index 1 is active: @(negedge rst_n)\n");
     }
 }
 #endif  // VL_DEBUG
@@ -73,12 +54,19 @@ VL_ATTR_COLD void VSimple___024root___ctor_var_reset(VSimple___024root* vlSelf) 
     VSimple__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     auto& vlSelfRef = std::ref(*vlSelf).get();
     // Body
-    vlSelf->clk = VL_RAND_RESET_I(1);
-    vlSelf->rst_n = VL_RAND_RESET_I(1);
-    vlSelf->Simple__DOT__counter_add = VL_RAND_RESET_I(2);
-    VL_RAND_RESET_W(127, vlSelf->Simple__DOT__counter_shift);
-    vlSelf->__Vtrigprevexpr___TOP__clk__0 = VL_RAND_RESET_I(1);
-    vlSelf->__Vtrigprevexpr___TOP__rst_n__0 = VL_RAND_RESET_I(1);
+    const uint64_t __VscopeHash = VL_MURMUR64_HASH(vlSelf->name());
+    vlSelf->clk = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 16707436170211756652ull);
+    vlSelf->rst_n = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 1638864771569018232ull);
+    vlSelf->Simple__DOT__counter_add = VL_SCOPED_RAND_RESET_I(2, __VscopeHash, 13050835575990521274ull);
+    VL_SCOPED_RAND_RESET_W(127, vlSelf->Simple__DOT__counter_shift, __VscopeHash, 3547993347733520752ull);
+    for (int __Vi0 = 0; __Vi0 < 1; ++__Vi0) {
+        vlSelf->__VactTriggered[__Vi0] = 0;
+    }
+    vlSelf->__Vtrigprevexpr___TOP__clk__0 = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 9526919608049418986ull);
+    vlSelf->__Vtrigprevexpr___TOP__rst_n__0 = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 14803524876191471008ull);
+    for (int __Vi0 = 0; __Vi0 < 1; ++__Vi0) {
+        vlSelf->__VnbaTriggered[__Vi0] = 0;
+    }
     for (int __Vi0 = 0; __Vi0 < 2; ++__Vi0) {
         vlSelf->__Vm_traceActivity[__Vi0] = 0;
     }

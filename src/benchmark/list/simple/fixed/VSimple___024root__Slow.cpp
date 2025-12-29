@@ -3,8 +3,6 @@
 // See VSimple.h for the primary calling header
 
 #include "VSimple__pch.h"
-#include "VSimple__Syms.h"
-#include "VSimple___024root.h"
 
 void VSimple___024root___ctor_var_reset(VSimple___024root* vlSelf);
 

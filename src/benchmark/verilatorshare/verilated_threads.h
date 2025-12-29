@@ -241,7 +241,6 @@ public:
 private:
     VL_UNCOPYABLE(VlThreadPool);
 
-    static bool isNumactlRunning();
     std::string numaAssign();
 };
 

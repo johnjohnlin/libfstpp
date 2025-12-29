@@ -17,8 +17,8 @@ VSimple__Syms::VSimple__Syms(VerilatedContext* contextp, const char* namep, VSim
     // Setup module instances
     , TOP{this, namep}
 {
-        // Check resources
-        Verilated::stackCheck(43);
+    // Check resources
+    Verilated::stackCheck(158);
     // Configure time unit / time precision
     _vm_contextp__->timeunit(-12);
     _vm_contextp__->timeprecision(-12);

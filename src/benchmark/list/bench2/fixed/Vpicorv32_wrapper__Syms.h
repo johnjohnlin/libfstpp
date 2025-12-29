@@ -21,7 +21,7 @@
 // DPI TYPES for DPI Export callbacks (Internal use)
 
 // SYMS CLASS (contains all model state)
-class alignas(VL_CACHE_LINE_BYTES)Vpicorv32_wrapper__Syms final : public VerilatedSyms {
+class alignas(VL_CACHE_LINE_BYTES) Vpicorv32_wrapper__Syms final : public VerilatedSyms {
   public:
     // INTERNAL STATE
     Vpicorv32_wrapper* const __Vm_modelp;
