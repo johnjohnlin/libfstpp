@@ -27,12 +27,6 @@
 ///
 //*************************************************************************
 
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wunused-variable"
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-#pragma GCC diagnostic ignored "-Wpedantic"
-#pragma GCC diagnostic ignored "-Wformat"
-
 #ifndef VERILATOR_VERILATED_H_
 #define VERILATOR_VERILATED_H_
 #define VERILATOR_VERILATED_H_INTERNAL_
@@ -45,8 +39,8 @@
 #endif
 
 // clang-format off
-#include "verilatedos.h"
 #include "verilated_config.h"
+#include "verilatedos.h"
 #if VM_SC
 # include "verilated_sc.h"  // Get SYSTEMC_VERSION and time declarations
 #endif
@@ -119,6 +113,7 @@ class VerilatedVcdSc;
 //=========================================================================
 // Basic types
 
+// Type letters
 // clang-format off
 //    P                     // Packed data of bit type (C/S/I/Q/W)
 using CData = uint8_t;    ///< Data representing 'bit' of 1-8 packed bits
@@ -130,6 +125,8 @@ using WData = EData;        ///< Data representing >64 packed bits (used as poin
 //    F     = float;        // No typedef needed; Verilator uses float
 //    D     = double;       // No typedef needed; Verilator uses double
 //    N     = std::string;  // No typedef needed; Verilator uses string
+//    U     = VlUnpacked;
+//    R     = VlQueue;
 // clang-format on
 
 using WDataInP = const WData*;  ///< 'bit' of >64 packed bits as array input to a function
@@ -188,15 +185,6 @@ struct VlIsCustomStruct : public std::false_type {};
 // Type trait: used to detect if array element is a custom struct (e.g. for struct arrays)
 template <typename T>
 struct VlContainsCustomStruct : VlIsCustomStruct<T> {};
-
-//=============================================================================
-// Utility functions
-
-template <size_t N>
-inline constexpr size_t roundUpToMultipleOf(size_t value) {
-    static_assert((N & (N - 1)) == 0, "'N' must be a power of 2");
-    return (value + N - 1) & ~(N - 1);
-}
 
 //=========================================================================
 // Mutex and threading support
@@ -454,7 +442,7 @@ protected:
     // Implementation details
     const std::unique_ptr<VerilatedContextImpData> m_impdatap;
     // Number of threads to use for simulation (size of m_threadPool + 1 for main thread)
-    unsigned m_threads = std::thread::hardware_concurrency();
+    unsigned m_threads = VlOs::getProcessDefaultParallelism();
     // Number of threads in added models
     unsigned m_threadsInModels = 0;
     // The thread pool shared by all models added to this context
@@ -647,7 +635,7 @@ public:
     }
 
     // Internal: Model and thread setup
-    void addModel(VerilatedModel*);
+    void addModel(const VerilatedModel* modelp);
     VerilatedVirtualBase* threadPoolp();
     void prepareClone();
     VerilatedVirtualBase* threadPoolpOnClone();
@@ -766,8 +754,8 @@ public:  // But internals only - called from VerilatedModule's
 
 class VerilatedHierarchy final {
 public:
-    static void add(VerilatedScope* fromp, VerilatedScope* top);
-    static void remove(VerilatedScope* fromp, VerilatedScope* top);
+    static void add(const VerilatedScope* fromp, const VerilatedScope* top);
+    static void remove(const VerilatedScope* fromp, const VerilatedScope* top);
 };
 
 //===========================================================================

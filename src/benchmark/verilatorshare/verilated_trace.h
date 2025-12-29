@@ -53,8 +53,7 @@ enum class VerilatedTracePrefixType : uint8_t {
     // Note: Entries must match VTracePrefixType (by name, not necessarily by value)
     ARRAY_PACKED,
     ARRAY_UNPACKED,
-    ROOTIO_MODULE,  // $rootio, used when name()=="", other modules become peers
-    ROOTIO_WRAPPER,  // "Above" ROOTIO_MODULE
+    ROOTIO_WRAPPER,  // $rootio suppressed due to name()!=""
     SCOPE_MODULE,
     SCOPE_INTERFACE,
     STRUCT_PACKED,
@@ -78,6 +77,9 @@ enum class VerilatedTraceSigKind : uint8_t {
     TRI,
     TRI0,
     TRI1,
+    TRIAND,
+    TRIOR,
+    TRIREG,
     WIRE,
     VAR,
 };
@@ -532,7 +534,7 @@ public:
     }
     VL_ATTR_ALWINLINE void chgEventTriggered(uint32_t* oldp) { fullEventTriggered(oldp); }
     VL_ATTR_ALWINLINE void chgDouble(uint32_t* oldp, double newval) {
-        double old;
+        double old;  // LCOV_EXCL_LINE  // lcov bug
         std::memcpy(&old, oldp, sizeof(old));
         if (VL_UNLIKELY(old != newval)) fullDouble(oldp, newval);
     }

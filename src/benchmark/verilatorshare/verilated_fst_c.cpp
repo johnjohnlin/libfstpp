@@ -31,7 +31,11 @@
 #define FST_WRITER_PARALLEL
 #define LZ4_DISABLE_DEPRECATE_WARNINGS
 
-#include "gtkwave/fstapi.h"
+// Include the GTKWave implementation directly
+#define FST_CONFIG_INCLUDE "fst_config.h"
+#include "gtkwave/fastlz.c"
+#include "gtkwave/fstapi.c"
+#include "gtkwave/lz4.c"
 
 #include <algorithm>
 #include <iterator>
@@ -136,7 +140,6 @@ void VerilatedFst::declDTypeEnum(int dtypenum, const char* name, uint32_t elemen
 // TODO: should return std::optional<fstScopeType>, but I can't have C++17
 static std::pair<bool, fstScopeType> toFstScopeType(VerilatedTracePrefixType type) {
     switch (type) {
-    case VerilatedTracePrefixType::ROOTIO_MODULE: return {true, FST_ST_VCD_MODULE};
     case VerilatedTracePrefixType::SCOPE_MODULE: return {true, FST_ST_VCD_MODULE};
     case VerilatedTracePrefixType::SCOPE_INTERFACE: return {true, FST_ST_VCD_INTERFACE};
     case VerilatedTracePrefixType::STRUCT_PACKED:
@@ -148,19 +151,23 @@ static std::pair<bool, fstScopeType> toFstScopeType(VerilatedTracePrefixType typ
 
 void VerilatedFst::pushPrefix(const std::string& name, VerilatedTracePrefixType type) {
     assert(!m_prefixStack.empty());  // Constructor makes an empty entry
-    std::string pname = name;
-    // An empty name means this is the root of a model created with name()=="".  The
-    // tools get upset if we try to pass this as empty, so we put the signals under a
-    // new scope, but the signals further down will be peers, not children (as usual
-    // for name()!="")
-    // Terminate earlier $root?
-    if (m_prefixStack.back().second == VerilatedTracePrefixType::ROOTIO_MODULE) popPrefix();
-    if (pname.empty()) {  // Start new temporary root
-        pname = "$rootio";  // VCD names are not backslash escaped
-        m_prefixStack.emplace_back("", VerilatedTracePrefixType::ROOTIO_WRAPPER);
-        type = VerilatedTracePrefixType::ROOTIO_MODULE;
+    // An empty name means this is the root of a model created with
+    // name()=="".  The tools get upset if we try to pass this as empty, so
+    // we put the signals under a new $rootio scope, but the signals
+    // further down will be peers, not children (as usual for name()!="").
+    const std::string prevPrefix = m_prefixStack.back().first;
+    if (name == "$rootio" && !prevPrefix.empty()) {
+        // Upper has name, we can suppress inserting $rootio, but still push so popPrefix works
+        m_prefixStack.emplace_back(prevPrefix, VerilatedTracePrefixType::ROOTIO_WRAPPER);
+        return;
+    } else if (name.empty()) {
+        m_prefixStack.emplace_back(prevPrefix, VerilatedTracePrefixType::ROOTIO_WRAPPER);
+        return;
     }
-    const std::string newPrefix = m_prefixStack.back().first + pname;
+
+    // This code assumes a signal at a given prefix level is declared before
+    // any pushPrefix are done at that same level.
+    const std::string newPrefix = prevPrefix + name;
     const auto pair = toFstScopeType(type);
     const bool properScope = pair.first;
     const fstScopeType scopeType = pair.second;
@@ -223,6 +230,9 @@ void VerilatedFst::declare(uint32_t code, const char* name, int dtypenum,
     else if (kind == VerilatedTraceSigKind::TRI) varType = FST_VT_VCD_TRI;
     else if (kind == VerilatedTraceSigKind::TRI0) varType = FST_VT_VCD_TRI0;
     else if (kind == VerilatedTraceSigKind::TRI1) varType = FST_VT_VCD_TRI1;
+    else if (kind == VerilatedTraceSigKind::TRIAND) varType = FST_VT_VCD_TRIAND;
+    else if (kind == VerilatedTraceSigKind::TRIOR) varType = FST_VT_VCD_TRIOR;
+    else if (kind == VerilatedTraceSigKind::TRIREG) varType = FST_VT_VCD_TRIREG;
     else if (kind == VerilatedTraceSigKind::WIRE) varType = FST_VT_VCD_WIRE;
     //
     else if (type == VerilatedTraceSigType::INTEGER) varType = FST_VT_VCD_INTEGER;
@@ -290,7 +300,7 @@ VerilatedFst::Buffer* VerilatedFst::getTraceBuffer(uint32_t fidx) {
 
 void VerilatedFst::commitTraceBuffer(VerilatedFst::Buffer* bufp) {
     if (offload()) {
-        OffloadBuffer* const offloadBufferp = static_cast<OffloadBuffer*>(bufp);
+        const OffloadBuffer* const offloadBufferp = static_cast<const OffloadBuffer*>(bufp);
         if (offloadBufferp->m_offloadBufferWritep) {
             m_offloadBufferWritep = offloadBufferp->m_offloadBufferWritep;
             return;  // Buffer will be deleted by the offload thread
