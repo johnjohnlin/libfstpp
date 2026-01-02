@@ -17,6 +17,12 @@ elseif (MSVC)
     add_compile_options(/W4)
 endif()
 
+option(ENABLE_COVERAGE "Enable coverage reporting" OFF)
+if(ENABLE_COVERAGE)
+    add_compile_options(--coverage -O0 -g)
+    add_link_options(--coverage)
+endif()
+
 # build gtkwave FST library
 file(GLOB GTKWAVE_SRCS
     "${CMAKE_CURRENT_SOURCE_DIR}/fstapi/gtkwave/*.c"
