@@ -112,6 +112,30 @@ public:
 	void Upscope();
 
 	//////////////////////////////
+	// Attribute / Misc API
+	//////////////////////////////
+	void SetAttrBegin(
+		Hierarchy::AttrType attrtype, Hierarchy::AttrSubType subtype,
+		const std::string_view attrname, uint64_t arg
+	);
+	inline void SetAttrEnd() {
+		hierarchy_buffer_.put(static_cast<char>(Hierarchy::ScopeControlType::eGenAttrEnd));
+	}
+	EnumHandle CreateEnumTable(
+		const std::string_view name,
+		uint32_t min_valbits,
+		const std::vector<std::pair<std::string_view, std::string_view>>& literal_val_arr
+	);
+	inline void EmitEnumTableRef(EnumHandle handle) {
+		SetAttrBegin(Hierarchy::AttrType::eMisc, Hierarchy::AttrSubType::eMisc_EnumTable, std::string_view{}, handle);
+	}
+	inline void SetWriterPackType(WriterPackType pack_type) {
+		CHECK_NE(pack_type_, WriterPackType::eZlib);
+		CHECK_NE(pack_type_, WriterPackType::eFastLz);
+		pack_type_ = pack_type;
+	}
+
+	//////////////////////////////
 	// Create variable API
 	//////////////////////////////
 	Handle CreateVar(
@@ -178,10 +202,6 @@ public:
 	inline void SetScope(Hierarchy::ScopeType scopetype, const char* scopename, const char* scopecomp) {
 		SetScope(scopetype, detail::SafeStringView(scopename), detail::SafeStringView(scopecomp));
 	}
-
-	inline void SetWriterPackType(WriterPackType pack_type) {
-		pack_type_ = pack_type;
-	}
 private:
 	// File/memory buffers
 	// 1. For hierarchy and geometry, we do not keep the data structure, instead we just
@@ -195,7 +215,8 @@ private:
 	detail::BlackoutData blackout_data_;
 	detail::ValueChangeData value_change_data_;
 	bool hierarchy_finalized_ = false;
-	enum WriterPackType pack_type_ = WriterPackType::eZlib;
+	enum WriterPackType pack_type_ = WriterPackType::eLz4;
+	uint32_t enum_count_ = 0;
 
 	// internal helpers
 	static void WriteHeader_(const Header &header, std::ostream &os);

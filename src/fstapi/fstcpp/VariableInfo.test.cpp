@@ -129,6 +129,7 @@ TEST(VariableInfoTest, DumpValueChange_LongInt_Binary) {
                         "\x06\x01\x23\x45\x67\x89\x0a\xbc\xde\xf0"s);
 }
 
+// LCOV_EXCL_START
 TEST(VariableInfoTest, DISABLED_DumpValueChange_Double_Binary) {
     std::unique_ptr<VariableInfoBase> vi(VariableInfoBase::Create(kDontCareBitWidth, true));
     vi->EmitValueChange(0, 0x3ff0000000000000ULL); // 1.0 in IEEE754
@@ -136,5 +137,6 @@ TEST(VariableInfoTest, DISABLED_DumpValueChange_Double_Binary) {
     vi->DumpValueChanges(os);
     FAIL() << "TODO";
 }
+// LCOV_EXCL_STOP
 
 } // namespace fst

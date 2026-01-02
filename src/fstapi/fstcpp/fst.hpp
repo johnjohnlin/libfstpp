@@ -10,11 +10,15 @@
 namespace fst {
 
 typedef uint32_t Handle;
+typedef uint32_t EnumHandle;
 
 enum WriterPackType : uint8_t {
-	eZlib = 0,
-	eFastLz = 1,
+	eZlib = 0, // not supported
+	eFastLz = 1, // not supported
 	eLz4 = 2,
+	// usually for testing, you should use eLz4
+	eLz4ForceOn = 3,
+	eLz4ForceOff = 4,
 };
 
 enum FileType : uint8_t {
@@ -57,8 +61,8 @@ struct Hierarchy {
 	};
 
 	enum ScopeControlType : uint8_t {
-		eGenAttrbegin = 252,
-		eGenAttrend = 253,
+		eGenAttrBegin = 252,
+		eGenAttrEnd = 253,
 		eVcdScope = 254,
 		eVcdUpscope = 255,
 	};
@@ -107,6 +111,66 @@ struct Hierarchy {
 		eLinkage = 5,
 
 		eMax = 5,
+	};
+
+	enum class AttrType : uint8_t {
+		eMin = 0,
+		eMisc = 0,
+		eArray = 1,
+		eEnum = 2,
+		ePack = 3,
+		eMax = 3,
+	};
+
+	enum class AttrSubType : uint8_t {
+		// For AttrType::eMisc
+		eMisc_Min = 0,
+		eMisc_Comment = 0,
+		eMisc_EnvVar = 1,
+		eMisc_SupVar = 2,
+		eMisc_PathName = 3,
+		eMisc_SourceStem = 4,
+		eMisc_SourceIStem = 5,
+		eMisc_ValueList = 6,
+		eMisc_EnumTable = 7,
+		eMisc_Unknown = 8,
+		eMisc_Max = 8,
+
+		// For AttrType::eArray
+		eArray_Min = 0,
+		eArray_None = 0,
+		eArray_Unpacked = 1,
+		eArray_Packed = 2,
+		eArray_Sparse = 3,
+		eArray_Max = 3,
+
+		// For AttrType::eEnum
+		eEnum_Min = 0,
+		eEnum_SvInteger = 0,
+		eEnum_SvBit = 1,
+		eEnum_SvLogic = 2,
+		eEnum_SvInt = 3,
+		eEnum_SvShortint = 4,
+		eEnum_SvLongint = 5,
+		eEnum_SvByte = 6,
+		eEnum_SvUnsignedInteger = 7,
+		eEnum_SvUnsignedBit = 8,
+		eEnum_SvUnsignedLogic = 9,
+		eEnum_SvUnsignedInt = 10,
+		eEnum_SvUnsignedShortint = 11,
+		eEnum_SvUnsignedLongint = 12,
+		eEnum_SvUnsignedByte = 13,
+		eEnum_Reg = 14,
+		eEnum_Time = 15,
+		eEnum_Max = 15,
+
+		// For AttrType::ePack
+		ePack_Min = 0,
+		ePack_None = 0,
+		ePack_Unpacked = 1,
+		ePack_Packed = 2,
+		ePack_Sparse = 3,
+		ePack_Max = 3,
 	};
 
 	enum SupplementalVarType : uint8_t {

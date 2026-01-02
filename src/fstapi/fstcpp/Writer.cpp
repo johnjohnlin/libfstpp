@@ -12,6 +12,8 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <cstring>
+#include <cstdio>
 // Other libraries' .h files.
 #include <lz4.h>
 #include <zlib.h>
@@ -32,7 +34,7 @@ namespace detail {
 void BlackoutData::EmitDumpActive(uint64_t current_timestamp, bool enable) {
 	StreamWriteHelper h(buffer);
 	h
-	.WriteUInt(static_cast<uint8_t>(enable))
+	.WriteUInt<uint8_t>(enable)
 	.WriteLEB128(current_timestamp - previous_timestamp);
 	++count;
 }
@@ -66,6 +68,7 @@ struct ValueChangeData::VariableInfoBase {
 	virtual void EmitValueChange(uint64_t current_time_index, const uint64_t val) = 0;
 
 	// These are optional to override
+	// LCOV_EXCL_START
 	virtual void EmitValueChange(uint64_t current_time_index, const uint32_t *val, EncodingType encoding) {
 		(void)current_time_index; (void)val; (void)encoding;
 		string error_msg = "EmitValueChange(uint32_t*) not supported for ";
@@ -78,6 +81,7 @@ struct ValueChangeData::VariableInfoBase {
 		error_msg += typeid(*this).name();
 		throw runtime_error(error_msg);
 	}
+	// LCOV_EXCL_STOP
 
 	virtual void KeepOnlyTheLatestValue() = 0;
 	virtual void DumpInitialBits(ostream &os) const = 0;
@@ -120,10 +124,12 @@ struct VariableInfoDouble : public ValueChangeData::VariableInfoBase {
 		os.write(reinterpret_cast<const char*>(&v), sizeof(v));
 	}
 
+	// LCOV_EXCL_START
 	void DumpValueChanges(ostream &os) const override {
 		(void)os;
 		throw runtime_error("TODO: DumpValueChanges not implemented for VariableInfoDouble");
 	}
+	// LCOV_EXCL_STOP
 };
 
 template<typename T>
@@ -215,6 +221,8 @@ public:
 			}
 			break;
 		}
+		// Not supporting VHDL now
+		// LCOV_EXCL_START
 		default:
 		case EncodingType::eVhdl: {
 			for (unsigned i = bitwidth; i-- > 0;) {
@@ -226,6 +234,7 @@ public:
 			}
 			break;
 		}}
+		// LCOV_EXCL_STOP
 	}
 
 	void DumpValueChanges(ostream &os) const override {
@@ -238,9 +247,12 @@ public:
 			for (size_t i = 1; i < change_entries.size(); ++i) {
 				unsigned val = 0;
 				switch (change_entries[i].encoding) {
+				// Not supporting VHDL now
+				// LCOV_EXCL_START
 				case EncodingType::eVhdl:
 					val |= value_ptr[2];
 					[[fallthrough]];
+				// LCOV_EXCL_STOP
 				case EncodingType::eVerilog:
 					val |= value_ptr[1];
 					[[fallthrough]];
@@ -256,6 +268,8 @@ public:
 				case 1: delta_time_index = (delta_time_index<<2) | (1<<1) | 0; break; // '1'
 				case 2: delta_time_index = (delta_time_index<<4) | (0<<1) | 1; break; // 'X'
 				case 3: delta_time_index = (delta_time_index<<4) | (1<<1) | 1; break; // 'Z'
+				// Not supporting VHDL now
+				// LCOV_EXCL_START
 				case 4: delta_time_index = (delta_time_index<<4) | (2<<1) | 1; break; // 'H'
 				case 5: delta_time_index = (delta_time_index<<4) | (3<<1) | 1; break; // 'U'
 				case 6: delta_time_index = (delta_time_index<<4) | (4<<1) | 1; break; // 'W'
@@ -263,6 +277,7 @@ public:
 				case 8: delta_time_index = (delta_time_index<<4) | (6<<1) | 1; break; // '-'
 				case 9: delta_time_index = (delta_time_index<<4) | (7<<1) | 1; break; // '?'
 				default: break;
+				// LCOV_EXCL_STOP
 				}
 				h.WriteLEB128(delta_time_index);
 				value_ptr += static_cast<unsigned>(change_entries[i].encoding);
@@ -388,6 +403,8 @@ public:
 		}
 		default:
 		case EncodingType::eVhdl: {
+			// Not supporting VHDL now
+			// LCOV_EXCL_START
 			for (unsigned i = bitwidth; i-- > 0;) {
 				const unsigned word_index = i / 64;
 				const unsigned bit_index  = i % 64;
@@ -398,6 +415,7 @@ public:
 				os.put(c);
 			}
 			break;
+			// LCOV_EXCL_STOP
 		}}
 	}
 
@@ -424,7 +442,7 @@ public:
 					);
 				}
 				// 0
-				h.WriteUIntPartialForValueChange(value_ptr[0], remaining);
+			h.WriteUIntPartialForValueChange(value_ptr[0], remaining);
 			} else {
 				// Write from nw-1 to 0
 				for (unsigned j = nw; j-- > 0;) {
@@ -495,10 +513,10 @@ void Writer::SetScope(
 	CHECK(not hierarchy_finalized_);
 	StreamWriteHelper h(hierarchy_buffer_);
 	h
-	.WriteUInt(static_cast<uint8_t>(Hierarchy::ScopeControlType::eVcdScope))
-	.WriteUInt(static_cast<uint8_t>(scopetype))
-	.WriteString(scopename)
-	.WriteString(scopecomp);
+	.WriteUInt<uint8_t>(Hierarchy::ScopeControlType::eVcdScope)
+	.WriteUInt<uint8_t>(scopetype)
+	.WriteString0(scopename)
+	.WriteString0(scopecomp);
 	++header_.num_scopes;
 }
 
@@ -506,7 +524,7 @@ void Writer::Upscope() {
 	CHECK(not hierarchy_finalized_);
 	// TODO: shall we inline it?
 	StreamWriteHelper h(hierarchy_buffer_);
-	h.WriteUInt(static_cast<uint8_t>(Hierarchy::ScopeControlType::eVcdUpscope));
+	h.WriteUInt<uint8_t>(Hierarchy::ScopeControlType::eVcdUpscope);
 }
 
 Handle Writer::CreateVar(
@@ -548,9 +566,9 @@ Handle Writer::CreateVar(
 	}
 
 	h
-	.WriteUInt(static_cast<uint8_t>(vartype))
-	.WriteUInt(static_cast<uint8_t>(vardir))
-	.WriteString(name)
+	.WriteUInt<uint8_t>(vartype)
+	.WriteUInt<uint8_t>(vardir)
+	.WriteString0(name)
 	.WriteLEB128(bitwidth)
 	.WriteLEB128(is_alias ? alias_handle : 0);
 
@@ -572,6 +590,7 @@ Handle Writer::CreateVar(
 	return alias_handle;
 }
 
+// LCOV_EXCL_START
 Handle Writer::CreateVar2(
 	Hierarchy::VarType vartype, Hierarchy::VarDirection vardir,
 	uint32_t bitwidth, const string_view name, Handle alias_handle, const string_view type,
@@ -582,6 +601,7 @@ Handle Writer::CreateVar2(
 	throw runtime_error("TODO");
 	return 0;
 }
+// LCOV_EXCL_STOP
 
 /////////////////////////////////////////
 // Waveform API
@@ -612,7 +632,7 @@ template<typename... T>
 void Writer::EmitValueChangeHelper_(Handle handle, T&&... val) {
 	FinalizeHierarchy_();
 	auto& var_info = value_change_data_.variable_infos[handle - 1];
-	var_info->EmitValueChange(value_change_data_.timestamps.size() - 1, std::forward<T>(val)...);
+	var_info->EmitValueChange(value_change_data_.timestamps.size() - 1, forward<T>(val)...);
 }
 
 void Writer::EmitValueChange(Handle handle, const uint32_t *val, EncodingType encoding) {
@@ -684,7 +704,9 @@ void Writer::WriteHeader_(const Header& header, ostream& os) {
 	DCHECK_EQ(os.tellp(), HeaderInfo::total_size + kSharedBlockHeaderSize);
 };
 
-static vector<char> CompressUsingZlib(const string& uncompressed_data) {
+namespace { // compression helpers
+
+vector<char> CompressUsingZlib(const string& uncompressed_data) {
 	// compress using zlib
 	const uLong uncompressed_size = uncompressed_data.size();
 	uLongf compressed_bound = compressBound(uncompressed_size);
@@ -703,7 +725,7 @@ static vector<char> CompressUsingZlib(const string& uncompressed_data) {
 	return compressed_data;
 }
 
-static auto SelectSmaller(const vector<char>& compressed_data, const string& uncompressed_data) {
+auto SelectSmaller(const vector<char>& compressed_data, const string& uncompressed_data) {
 	pair<const char*, size_t> ret;
 	if (compressed_data.size() < uncompressed_data.size()) {
 		ret.first = compressed_data.data();
@@ -713,7 +735,9 @@ static auto SelectSmaller(const vector<char>& compressed_data, const string& unc
 		ret.second = uncompressed_data.size();
 	}
 	return ret;
-};
+}
+
+} // namespace
 
 // AppendHierarchy_ and AppendGeometry_ shares a very similar structure
 // But they are slightly different in the original C implementation...
@@ -845,9 +869,9 @@ vector<int64_t> detail::ValueChangeData::UniquifyWaveData(
 }
 
 uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
-	std::ostream& os,
-	const std::vector<std::vector<char>>& data,
-	std::vector<int64_t>& positions
+	ostream& os,
+	const vector<vector<char>>& data,
+	vector<int64_t>& positions
 ) {
 	// After this function, positions[i] is:
 	//  - = 0: If variable i has no wave data
@@ -865,7 +889,7 @@ uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
 		} else {
 			// non-empty unique data, write it
 			written_count++;
-			std::streamoff bytes_written;
+			streamoff bytes_written;
 			h
 			.BeginOffset(bytes_written)
 			.WriteLEB128(0) // 0 means no compression (TODO: implement compression)
@@ -1038,6 +1062,130 @@ void Writer::FlushValueChangeData_(const detail::ValueChangeData& vcd, ostream& 
 	.WriteUInt<uint64_t>(memory_usage*3/2)
 	// Restore position to end
 	.Seek(end_pos, ios_base::beg);
+}
+
+namespace { // Helper functions for CreateEnumTable
+
+void AppendEscToString(const string_view in, string& out) {
+	for (char c : in) {
+		switch (c) {
+		case '\a': { out += "\\a"; break; }
+		case '\b': { out += "\\b"; break; }
+		case '\f': { out += "\\f"; break; }
+		case '\n': { out += "\\n"; break; }
+		case '\r': { out += "\\r"; break; }
+		case '\t': { out += "\\t"; break; }
+		case '\v': { out += "\\v"; break; }
+		case '\'': { out += "\\'"; break; }
+		case '\"': { out += "\\\""; break; }
+		case '\\': { out += "\\\\"; break; }
+		case '?': { out += "\\?"; break; }
+		default: {
+			if (c > ' ' && c <= '~') {
+				out += c;
+			} else {
+				unsigned char val = static_cast<unsigned char>(c);
+				out += '\\';
+				out += (val / 64) + '0';
+				val &= 63;
+				out += (val / 8) + '0';
+				val &= 7;
+				out += val + '0';
+			}
+			break;
+		}}
+	}
+}
+
+} // namespace
+
+void Writer::SetAttrBegin(
+	Hierarchy::AttrType attrtype, Hierarchy::AttrSubType subtype,
+	const string_view attrname, uint64_t arg
+) {
+	CHECK(not hierarchy_finalized_);
+
+	StreamWriteHelper h(hierarchy_buffer_);
+
+	if (attrtype > Hierarchy::AttrType::eMax) {
+		attrtype = Hierarchy::AttrType::eMisc;
+		subtype = Hierarchy::AttrSubType::eMisc_Unknown;
+	}
+
+	switch (attrtype) {
+	case Hierarchy::AttrType::eArray:
+		if (subtype < Hierarchy::AttrSubType::eArray_None ||
+			subtype > Hierarchy::AttrSubType::eArray_Sparse) {
+			subtype = Hierarchy::AttrSubType::eArray_None;
+		}
+		break;
+	case Hierarchy::AttrType::eEnum:
+		if (subtype < Hierarchy::AttrSubType::eEnum_SvInteger ||
+			subtype > Hierarchy::AttrSubType::eEnum_Time) {
+			subtype = Hierarchy::AttrSubType::eEnum_SvInteger;
+		}
+		break;
+	case Hierarchy::AttrType::ePack:
+		if (subtype < Hierarchy::AttrSubType::ePack_None ||
+			subtype > Hierarchy::AttrSubType::ePack_Sparse) {
+			subtype = Hierarchy::AttrSubType::ePack_None;
+		}
+		break;
+	case Hierarchy::AttrType::eMisc:
+	default:
+		break;
+	}
+
+	h
+	.WriteUInt(static_cast<uint8_t>(Hierarchy::ScopeControlType::eGenAttrBegin))
+	.WriteUInt(static_cast<uint8_t>(attrtype))
+	.WriteUInt(static_cast<uint8_t>(subtype))
+	.WriteString0(attrname)
+	.WriteLEB128(arg);
+}
+
+EnumHandle Writer::CreateEnumTable(
+	const string_view name,
+	uint32_t min_valbits,
+	const vector<pair<string_view, string_view>>& literal_val_arr
+) {
+	EnumHandle handle = 0;
+
+	if (name.empty() or literal_val_arr.empty()) {
+		return handle;
+	}
+
+	string attr_str;
+	attr_str.reserve(256);
+	attr_str += name;
+	attr_str += ' ';
+	attr_str += to_string(literal_val_arr.size());
+	attr_str += ' ';
+
+	for (const auto& [literal, val] : literal_val_arr) {
+		// literal
+		AppendEscToString(literal, attr_str);
+		attr_str += ' ';
+	}
+	for (const auto& [literal, val] : literal_val_arr) {
+		// val (with padding)
+		if (min_valbits > 0 and val.size() < min_valbits) {
+			attr_str.insert(attr_str.end(), min_valbits - val.size(), '0');
+		}
+		AppendEscToString(val, attr_str);
+		attr_str += ' ';
+	}
+	attr_str.pop_back(); // remove last space
+
+	handle = ++enum_count_;
+	SetAttrBegin(
+		Hierarchy::AttrType::eMisc,
+		Hierarchy::AttrSubType::eMisc_EnumTable,
+		attr_str,
+		handle
+	);
+
+	return handle;
 }
 
 } // namespace fst

@@ -109,19 +109,26 @@ struct StreamWriteHelper {
 	}
 
 	StreamWriteHelper& WriteBlockHeader(fst::BlockType block_type, uint64_t block_length) {
-		return this
-		->WriteUInt(static_cast<uint8_t>(block_type))
-		.WriteUInt(block_length + 8); // The 8 is required by FST, which is the size of this uint64_t
+		return (
+			this
+			->WriteUInt(static_cast<uint8_t>(block_type))
+			.WriteUInt(block_length + 8) // The 8 is required by FST, which is the size of this uint64_t
+		);
 	}
 
+	// Write the string, non-null-terminated
 	StreamWriteHelper& WriteString(const std::string_view str) {
-		os
-		->write(str.data(), str.size())
-		.put('\0');
+		os->write(str.data(), str.size());
 		return *this;
 	}
-	StreamWriteHelper& WriteString(const std::string& str) { return WriteString(std::string_view(str)); }
-	StreamWriteHelper& WriteString(const char* str) { return WriteString(std::string_view(str)); }
+
+	// Write the string, null-terminated
+	StreamWriteHelper& WriteString0(const std::string_view str) {
+		os->write(str.data(), str.size()).put('\0');
+		return *this;
+	}
+	StreamWriteHelper& WriteString(const std::string& str) { return WriteString0(std::string_view(str)); }
+	StreamWriteHelper& WriteString(const char* str) { return WriteString0(std::string_view(str)); }
 
 	StreamWriteHelper& Write(const char* ptr, size_t size) {
 		os->write(ptr, size);

@@ -152,7 +152,7 @@ void VSimple___024root___eval(VSimple___024root* vlSelf) {
 #ifdef VL_DEBUG
             VSimple___024root___dump_triggers__act(vlSelfRef.__VnbaTriggered, "nba"s);
 #endif
-            VL_FATAL_MT("Simple.sv", 2, "", "NBA region did not converge after 100 tries");
+            VL_FATAL_MT("/home/johnjohnlin/workspace/verilator_snapshot/src/benchmark/list/simple/Simple.sv", 2, "", "NBA region did not converge after 100 tries");
         }
         __VnbaIterCount = ((IData)(1U) + __VnbaIterCount);
         vlSelfRef.__VactIterCount = 0U;
@@ -161,7 +161,7 @@ void VSimple___024root___eval(VSimple___024root* vlSelf) {
 #ifdef VL_DEBUG
                 VSimple___024root___dump_triggers__act(vlSelfRef.__VactTriggered, "act"s);
 #endif
-                VL_FATAL_MT("Simple.sv", 2, "", "Active region did not converge after 100 tries");
+                VL_FATAL_MT("/home/johnjohnlin/workspace/verilator_snapshot/src/benchmark/list/simple/Simple.sv", 2, "", "Active region did not converge after 100 tries");
             }
             vlSelfRef.__VactIterCount = ((IData)(1U) 
                                          + vlSelfRef.__VactIterCount);

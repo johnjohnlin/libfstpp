@@ -5,6 +5,17 @@ module Simple (
   input rst_n
 );
 
+// define a 2b enum named CounterAdd
+typedef enum logic [1:0] {
+  ZERO = 2'b00,
+  ONE = 2'b01,
+  TWO = 2'b10,
+  THREE = 2'b11
+} counter_add_e;
+
+counter_add_e counter_add_enum_version;
+assign counter_add_enum_version = counter_add_e'(counter_add);
+
 logic [1:0] counter_add;
 always_ff @(posedge clk or negedge rst_n) begin
   if (!rst_n) begin

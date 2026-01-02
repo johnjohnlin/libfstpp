@@ -37,6 +37,13 @@
 // verilator code.
 #error "verilated.h should only be included in verilated code"
 #endif
+// simply turn off all warnings since these files are not the focus of this project
+#pragma GCC diagnostic ignored "-Wbool-operation"
+#pragma GCC diagnostic ignored "-Wformat"
+#pragma GCC diagnostic ignored "-Wpedantic"
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wunused-variable"
 
 // clang-format off
 #include "verilated_config.h"

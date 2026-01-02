@@ -192,8 +192,22 @@ fstEnumHandle fstWriterCreateEnumTable(
 	const char **literal_arr,
 	const char **val_arr
 ) {
-	(void)ctx; (void)name; (void)elem_count; (void)min_valbits; (void)literal_arr; (void)val_arr; TODO(__func__);
-	return 0;
+	if (not ctx or not name or not literal_arr or not val_arr) return 0;
+	vector<pair<string_view, string_view>> literal_val_arr;
+	literal_val_arr.reserve(elem_count);
+	for (uint32_t i = 0; i < elem_count; ++i) {
+		literal_val_arr.emplace_back(literal_arr[i], val_arr[i]);
+	}
+	return ctx->writer.CreateEnumTable(
+		name,
+		min_valbits,
+		literal_val_arr
+	);
+}
+
+void fstWriterEmitEnumTableRef(fstWriterContext *ctx, fstEnumHandle handle) {
+	if (not ctx) return;
+	ctx->writer.EmitEnumTableRef(handle);
 }
 
 void fstWriterSetAttrBegin(
@@ -203,11 +217,18 @@ void fstWriterSetAttrBegin(
 	const char *attrname,
 	uint64_t arg
 ) {
-	(void)ctx; (void)attrtype; (void)subtype; (void)attrname; (void)arg; TODO(__func__);
+	if (not ctx) return;
+	ctx->writer.SetAttrBegin(
+		static_cast<fst::Hierarchy::AttrType>(attrtype),
+		static_cast<fst::Hierarchy::AttrSubType>(subtype),
+		fst::detail::SafeStringView(attrname),
+		arg
+	);
 }
 
 void fstWriterSetAttrEnd(fstWriterContext *ctx) {
-	(void)ctx; TODO(__func__);
+	if (not ctx) return;
+	ctx->writer.SetAttrEnd();
 }
 
 void fstWriterSetComment(fstWriterContext *ctx, const char *comm) {
@@ -234,10 +255,6 @@ void fstWriterSetSourceStem(
 	unsigned int use_realpath
 ) {
 	(void)ctx; (void)path; (void)line; (void)use_realpath; TODO(__func__);
-}
-
-void fstWriterEmitEnumTableRef(fstWriterContext *ctx, fstEnumHandle handle) {
-	(void)ctx; (void)handle; TODO(__func__);
 }
 
 // Waveform related

@@ -137,6 +137,89 @@ TEST_F(WriterTest, Scope) {
     EXPECT_EQ(buf, expected);
 }
 
+TEST_F(WriterTest, CreateEnumTable_NoEscape_Padding) {
+    Writer writer;
+    // Call CreateEnumTable
+    writer.CreateEnumTable(
+        "E1 Hello World",
+        3, // test padding
+        {{"A", "0"}, {"B", "001"}, {"C", "1101"}}
+    );
+    // Get the hierarchy buffer content
+    string buf = GetHierarchyBuffer(writer);
+    string expected = (
+        // AttrBegin->Misc->EnumTable
+        "\xfc\x00\x07"
+        // enum name
+        "E1 Hello World "
+        // number of entries (in string!)
+        "3 "
+        // keys
+        "A B C "
+        // values; padding to at least 3 bytes
+        "000 001 1101\x00"
+        // LEB128 of 1
+        "\x01"s
+    );
+    EXPECT_EQ(buf, expected);
+}
+
+TEST_F(WriterTest, CreateEnumTable_Escape_NoPadding) {
+    Writer writer;
+    writer.CreateEnumTable(
+        "E2.hello.world", // test escape
+        0, // test no padding
+        {
+            {"\a", "000"},
+            {"\b", "001"},
+            {"\f", "010"},
+            {"\n", "011"},
+            {"\r", "100"},
+            {"\t", "101"},
+            {"\v", "110"},
+            {"\\", "111"},
+            {"?", "1000"},
+            {"\'", "1001"},
+            {"\"", "1010"},
+            {"\321", "1011"},
+        }
+    );
+
+    // Get the hierarchy buffer content
+    string buf = GetHierarchyBuffer(writer);
+    string expected = (
+        // AttrBegin->Misc->EnumTable
+        "\xfc\x00\x07"
+        // enum name; escaped
+        "E2.hello.world "
+        // number of entries (in string!)
+        "12 "
+        // keys
+        R"(\a \b \f \n \r \t \v \\ \? \' \" \321 )"
+        // values; no padding
+        "000 001 010 011 100 101 110 111 1000 1001 1010 1011\x00"
+        // LEB128 of 1
+        "\x01"s
+    );
+    EXPECT_EQ(buf.size(), expected.size());
+    EXPECT_EQ(buf, expected);
+}
+
+TEST_F(WriterTest, CreateEnumTableRef) {
+    Writer writer;
+    writer.EmitEnumTableRef((0x12<<7) | 0x34);
+    string buf = GetHierarchyBuffer(writer);
+    string expected = (
+        // AttrBegin->Misc->EnumTableRef
+        "\xFC\x00\x07"
+        // null terminated empty string
+        "\0"
+        // LEB128 of 0x12<<7 | 0x34
+        "\xB4\x12"s
+    );
+    EXPECT_EQ(buf, expected);
+}
+
 TEST_F(WriterTest, CreateVarVcdReal) {
     Writer writer;
     // Call CreateVar with eVcdReal
