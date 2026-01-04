@@ -44,12 +44,13 @@ fstWriterContext *fstWriterCreate(const char *name, int use_compressed_hier) {
 
 void fstWriterClose(fstWriterContext *ctx) {
 	if (not ctx) return;
+	ctx->writer.Close();
 	delete ctx;
 }
 
 void fstWriterFlushContext(fstWriterContext *ctx) {
 	if (not ctx) return;
-	ctx->writer.Close();
+	ctx->writer.FlushValueChangeData();
 }
 
 // Header related

@@ -49,6 +49,11 @@ int main(int argc, char **argv) {
         tb->eval();
         if (tfp) tfp->dump(sim_time);
         sim_time++;
+        // this value ensures manual flush before auto-flush for THIS test
+        // so we can compare our implementation with gtkwave's block-by-block
+        if (tfp and sim_time % 20000 == 0) {
+            tfp->flush();
+        }
     }
 
     // Close trace file

@@ -49,6 +49,11 @@ int main(int argc, char **argv, char **env)
         if (tfp) tfp->dump (t);
         if (trace_fd && top->clk && top->trace_valid) fprintf(trace_fd, "%9.9lx\n", top->trace_data);
         t += 5;
+        // this value ensures manual flush before auto-flush for THIS test
+        // so we can compare our implementation with gtkwave's block-by-block
+        if (tfp and t % 1000000 == 0) {
+            tfp->flush();
+        }
     }
     if (tfp) tfp->close();
     delete top;
@@ -58,4 +63,3 @@ int main(int argc, char **argv, char **env)
 
     exit(0);
 }
-

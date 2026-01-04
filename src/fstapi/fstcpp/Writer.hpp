@@ -45,11 +45,6 @@ struct ValueChangeData {
 	ValueChangeData();
 	~ValueChangeData();
 
-	uint64_t current_timestamp() const {
-		return timestamps.empty() ? 0 : timestamps.back();
-	}
-	uint64_t first_timestamp = 0;
-
 	void WriteInitialBits(std::ostream &os) const;
 	std::vector<std::vector<char>> ComputeWaveData() const;
 	static std::vector<int64_t> UniquifyWaveData(
@@ -65,6 +60,7 @@ struct ValueChangeData {
 		std::ostream &os
 	);
 	void WriteTimestamps(std::ostream &os) const;
+	void KeepOnlyTheLatestValue();
 };
 
 } // namespace detail
@@ -202,6 +198,11 @@ public:
 	inline void SetScope(Hierarchy::ScopeType scopetype, const char* scopename, const char* scopecomp) {
 		SetScope(scopetype, detail::SafeStringView(scopename), detail::SafeStringView(scopecomp));
 	}
+	// Flush value change data
+	inline void FlushValueChangeData() {
+		FlushValueChangeData_(value_change_data_, main_fst_file_);
+		value_change_data_usage_ = 0;
+	}
 private:
 	// File/memory buffers
 	// 1. For hierarchy and geometry, we do not keep the data structure, instead we just
@@ -216,6 +217,8 @@ private:
 	detail::ValueChangeData value_change_data_;
 	bool hierarchy_finalized_ = false;
 	enum WriterPackType pack_type_ = WriterPackType::eLz4;
+	uint64_t value_change_data_usage_ = 0; // Note: this value is just an estimation
+	uint64_t value_change_data_flush_threshold_ = 128<<20; // 128MB
 	uint32_t enum_count_ = 0;
 
 	// internal helpers
@@ -223,11 +226,27 @@ private:
 	void AppendGeometry_(std::ostream &os);
 	void AppendHierarchy_(std::ostream &os);
 	void AppendBlackout_(std::ostream &os);
-	static void FlushValueChangeData_(
+	// This function is used to flush value change data to file, and keep only the latest value in memory
+	// Just want to separate the const part from the non-const part for code clarity
+	static void FlushValueChangeDataConstPart_(
 		const detail::ValueChangeData &vcd,
 		std::ostream &os
 	);
-	void FinalizeHierarchy_() { hierarchy_finalized_ = true; }
+	static inline void FlushValueChangeData_(
+		detail::ValueChangeData &vcd,
+		std::ostream &os
+	) {
+		FlushValueChangeDataConstPart_(vcd, os);
+		vcd.KeepOnlyTheLatestValue();
+	}
+	void FinalizeHierarchy_() {
+		hierarchy_finalized_ = true;
+		// Original FST code comments: as a default, use 128MB and increment when
+		// every 1M signals are defined.
+		if (header_.num_handles != 0) {
+			value_change_data_flush_threshold_ = (((header_.num_handles-1) >> 20) + 1) << 27;
+		}
+	}
 	template <typename... T>
 	void EmitValueChangeHelper_(Handle handle, T&&... val);
 };

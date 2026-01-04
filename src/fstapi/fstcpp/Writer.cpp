@@ -39,12 +39,6 @@ void BlackoutData::EmitDumpActive(uint64_t current_timestamp, bool enable) {
 	++count;
 }
 
-ValueChangeData::ValueChangeData() {
-	variable_infos.reserve(1024);
-}
-
-ValueChangeData::~ValueChangeData() = default;
-
 struct ValueChangeData::VariableInfoBase {
 	const uint32_t bitwidth;
 	struct ChangeEntry {
@@ -65,17 +59,17 @@ struct ValueChangeData::VariableInfoBase {
 	unsigned num_words() const { return (bitwidth + 63) / 64; }
 
 	// This is pure virtual functions, child classes must implement them
-	virtual void EmitValueChange(uint64_t current_time_index, const uint64_t val) = 0;
+	virtual uint64_t EmitValueChange(uint64_t current_time_index, const uint64_t val) = 0;
 
 	// These are optional to override
 	// LCOV_EXCL_START
-	virtual void EmitValueChange(uint64_t current_time_index, const uint32_t *val, EncodingType encoding) {
+	virtual uint64_t EmitValueChange(uint64_t current_time_index, const uint32_t *val, EncodingType encoding) {
 		(void)current_time_index; (void)val; (void)encoding;
 		string error_msg = "EmitValueChange(uint32_t*) not supported for ";
 		error_msg += typeid(*this).name();
 		throw runtime_error(error_msg);
 	}
-	virtual void EmitValueChange(uint64_t current_time_index, const uint64_t *val, EncodingType encoding) {
+	virtual uint64_t EmitValueChange(uint64_t current_time_index, const uint64_t *val, EncodingType encoding) {
 		(void)current_time_index; (void)val; (void)encoding;
 		string error_msg = "EmitValueChange(uint64_t*) not supported for ";
 		error_msg += typeid(*this).name();
@@ -89,15 +83,33 @@ struct ValueChangeData::VariableInfoBase {
 	virtual ~VariableInfoBase() = default;
 };
 
-struct VariableInfoDouble : public ValueChangeData::VariableInfoBase {
+ValueChangeData::ValueChangeData() {
+	variable_infos.reserve(1024);
+}
+
+ValueChangeData::~ValueChangeData() = default;
+
+void ValueChangeData::KeepOnlyTheLatestValue() {
+	for (auto& v : variable_infos) {
+		v->KeepOnlyTheLatestValue();
+	}
+	timestamps.resize(0);
+}
+
+class VariableInfoDouble : public ValueChangeData::VariableInfoBase {
 	vector<double> value_changes; // Only support EncodingType::eBinary
 
+	inline uint64_t ComputeEmitMemory(EncodingType encoding) {
+		return sizeof(double) * static_cast<unsigned>(encoding);
+	}
+
+public:
 	VariableInfoDouble() : ValueChangeData::VariableInfoBase(8) {
 		value_changes.reserve(32);
 		value_changes.push_back(0.0);
 	}
 
-	void EmitValueChange(uint64_t current_time_index, const uint64_t val) override {
+	uint64_t EmitValueChange(uint64_t current_time_index, const uint64_t val) override {
 		if (current_time_index + 1 == 0) {
 			// This is the first value change, we need to remove everything
 			// and then add the new value
@@ -106,6 +118,7 @@ struct VariableInfoDouble : public ValueChangeData::VariableInfoBase {
 		}
 		change_entries.push_back({current_time_index, EncodingType::eBinary});
 		value_changes.push_back(bit_cast<double>(val));
+		return ComputeEmitMemory(EncodingType::eBinary);
 	}
 
 	void KeepOnlyTheLatestValue() override {
@@ -133,9 +146,10 @@ struct VariableInfoDouble : public ValueChangeData::VariableInfoBase {
 };
 
 template<typename T>
-struct VariableInfoScalarInt : public ValueChangeData::VariableInfoBase {
+class VariableInfoScalarInt : public ValueChangeData::VariableInfoBase {
 	vector<T> value_changes;
 
+public:
 	VariableInfoScalarInt(uint32_t bitwidth_) : ValueChangeData::VariableInfoBase(bitwidth_) {
 		value_changes.reserve(32);
 		// This is required by FST, we must have at least one entry
@@ -147,7 +161,7 @@ struct VariableInfoScalarInt : public ValueChangeData::VariableInfoBase {
 	}
 
 private:
-	void EmitValueChangeCommonPart(uint64_t current_time_index, EncodingType encoding) {
+	inline void EmitValueChangeCommonPart(uint64_t current_time_index, EncodingType encoding) {
 		if (current_time_index+1 == 0) {
 			// This is the first value change, we need to remove everything
 			// and then add the new value
@@ -157,13 +171,18 @@ private:
 		change_entries.push_back({current_time_index, encoding});
 	}
 
-public:
-	void EmitValueChange(uint64_t current_time_index, const uint64_t val) override {
-		EmitValueChangeCommonPart(current_time_index, EncodingType::eBinary);
-		value_changes.push_back(val);
+	inline uint64_t ComputeEmitMemory(EncodingType encoding) {
+		return sizeof(T) * static_cast<unsigned>(encoding);
 	}
 
-	void EmitValueChange(uint64_t current_time_index, const uint32_t* val, EncodingType encoding) override {
+public:
+	uint64_t EmitValueChange(uint64_t current_time_index, const uint64_t val) override {
+		EmitValueChangeCommonPart(current_time_index, EncodingType::eBinary);
+		value_changes.push_back(val);
+		return ComputeEmitMemory(EncodingType::eBinary);
+	}
+
+	uint64_t EmitValueChange(uint64_t current_time_index, const uint32_t* val, EncodingType encoding) override {
 		EmitValueChangeCommonPart(current_time_index, encoding);
 		for (unsigned i = 0; i < static_cast<unsigned>(encoding); ++i) {
 			if constexpr (sizeof(T) == 8) {
@@ -177,13 +196,15 @@ public:
 				val += 1;
 			}
 		}
+		return ComputeEmitMemory(encoding);
 	}
 
-	void EmitValueChange(uint64_t current_time_index, const uint64_t* val, EncodingType encoding) override {
+	uint64_t EmitValueChange(uint64_t current_time_index, const uint64_t* val, EncodingType encoding) override {
 		EmitValueChangeCommonPart(current_time_index, encoding);
 		for (unsigned i = 0; i < static_cast<unsigned>(encoding); ++i) {
 			value_changes.push_back(val[i]);
 		}
+		return ComputeEmitMemory(encoding);
 	}
 
 	void KeepOnlyTheLatestValue() override {
@@ -252,10 +273,10 @@ public:
 				case EncodingType::eVhdl:
 					val |= value_ptr[2];
 					[[fallthrough]];
-				// LCOV_EXCL_STOP
 				case EncodingType::eVerilog:
 					val |= value_ptr[1];
 					[[fallthrough]];
+				// LCOV_EXCL_STOP
 				default:
 				case EncodingType::eBinary:
 					val |= value_ptr[0];
@@ -300,9 +321,10 @@ public:
 	}
 };
 
-struct VariableInfoLongInt : public ValueChangeData::VariableInfoBase {
+class VariableInfoLongInt : public ValueChangeData::VariableInfoBase {
 	vector<uint64_t> value_changes;
 
+public:
 	VariableInfoLongInt(uint32_t bitwidth_) : ValueChangeData::VariableInfoBase(bitwidth_) {
 		value_changes.reserve(32);
 		// This is required by FST, we must have at least one entry
@@ -314,7 +336,7 @@ struct VariableInfoLongInt : public ValueChangeData::VariableInfoBase {
 	}
 
 private:
-	void EmitValueChangeCommonPart(uint64_t current_time_index, EncodingType encoding) {
+	inline void EmitValueChangeCommonPart(uint64_t current_time_index, EncodingType encoding) {
 		if (current_time_index+1 == 0) {
 			// This is the first value change, we need to remove everything
 			// and then add the new value
@@ -324,17 +346,22 @@ private:
 		change_entries.push_back({current_time_index, encoding});
 	}
 
+	inline uint64_t ComputeEmitMemory(EncodingType encoding) {
+		return sizeof(uint64_t) * num_words() * static_cast<unsigned>(encoding);
+	}
+
 public:
-	void EmitValueChange(uint64_t current_time_index, const uint64_t val) override {
+	uint64_t EmitValueChange(uint64_t current_time_index, const uint64_t val) override {
 		EmitValueChangeCommonPart(current_time_index, EncodingType::eBinary);
 		value_changes.push_back(val);
 		// LongInt requires more numbers of words to represent a full value
 		for (unsigned i = 0; i < num_words() - 1; ++i) {
 			value_changes.push_back(0);
 		}
+		return ComputeEmitMemory(EncodingType::eBinary);
 	}
 
-	void EmitValueChange(uint64_t current_time_index, const uint32_t *val, EncodingType encoding) override {
+	uint64_t EmitValueChange(uint64_t current_time_index, const uint32_t *val, EncodingType encoding) override {
 		EmitValueChangeCommonPart(current_time_index, encoding);
 		// 32 bit is not the native encoding for LongInt
 		// value_changes is vector<uint64_t>
@@ -352,11 +379,14 @@ public:
 				val += 1;
 			}
 		}
+		return ComputeEmitMemory(encoding);
 	}
 
-	void EmitValueChange(uint64_t current_time_index, const uint64_t *val, EncodingType encoding) override {
+	uint64_t EmitValueChange(uint64_t current_time_index, const uint64_t *val, EncodingType encoding) override {
 		EmitValueChangeCommonPart(current_time_index, encoding);
-		value_changes.insert(value_changes.end(), val, val + num_words() * static_cast<unsigned>(encoding));
+		const unsigned nw64 = num_words() * static_cast<unsigned>(encoding);
+		value_changes.insert(value_changes.end(), val, val + nw64);
+		return ComputeEmitMemory(encoding);
 	}
 
 	void KeepOnlyTheLatestValue() override {
@@ -494,12 +524,13 @@ void Writer::Close() {
 	if (header_.start_time == kInvalidTime) {
 		header_.start_time = 0;
 	}
-	WriteHeader_(header_, main_fst_file_);
-	// TODO: we only flush value change data here, but we should flush it in between
 	FlushValueChangeData_(value_change_data_, main_fst_file_);
 	AppendGeometry_(main_fst_file_);
 	AppendHierarchy_(main_fst_file_);
 	AppendBlackout_(main_fst_file_);
+	// Note: write header seek to 0, so we need to do
+	// this after all append operations
+	WriteHeader_(header_, main_fst_file_);
 	main_fst_file_.close();
 }
 
@@ -609,30 +640,30 @@ Handle Writer::CreateVar2(
 void Writer::EmitTimeChange(uint64_t tim) {
 	FinalizeHierarchy_();
 
-	// TODO: condition for auto flush?
-	if (false) {
+	if (value_change_data_usage_ > value_change_data_flush_threshold_) {
 		FlushValueChangeData_(value_change_data_, main_fst_file_);
-	} else {
 	}
 
 	// Update header
 	header_.start_time = min(header_.start_time, tim);
 	header_.end_time = tim;
 
-	if (value_change_data_.timestamps.empty() || value_change_data_.timestamps.back() != tim) {
+	if (value_change_data_.timestamps.empty() or value_change_data_.timestamps.back() != tim) {
 		value_change_data_.timestamps.push_back(tim);
 	}
 }
 
 void Writer::EmitDumpActive(bool enable) {
-	blackout_data_.EmitDumpActive(value_change_data_.current_timestamp(), enable);
+	// TODO: this API is not fully understood, need to check
+	CHECK(not value_change_data_.timestamps.empty());
+	blackout_data_.EmitDumpActive(value_change_data_.timestamps.back(), enable);
 }
 
 template<typename... T>
 void Writer::EmitValueChangeHelper_(Handle handle, T&&... val) {
 	FinalizeHierarchy_();
 	auto& var_info = value_change_data_.variable_infos[handle - 1];
-	var_info->EmitValueChange(value_change_data_.timestamps.size() - 1, forward<T>(val)...);
+	value_change_data_usage_ += var_info->EmitValueChange(value_change_data_.timestamps.size() - 1, std::forward<T>(val)...);
 }
 
 void Writer::EmitValueChange(Handle handle, const uint32_t *val, EncodingType encoding) {
@@ -957,7 +988,7 @@ void detail::ValueChangeData::WriteTimestamps(ostream& os) const {
 	}
 }
 
-void Writer::FlushValueChangeData_(const detail::ValueChangeData& vcd, ostream& os) {
+void Writer::FlushValueChangeDataConstPart_(const detail::ValueChangeData& vcd, ostream& os) {
 	if (vcd.timestamps.empty()) {
 		return;
 	}
@@ -973,8 +1004,8 @@ void Writer::FlushValueChangeData_(const detail::ValueChangeData& vcd, ostream& 
 		h
 		.BeginOffset(start_pos) // record start position
 		.WriteBlockHeader(BlockType::WaveDataVersion3, 0 /* Length placeholder 0 */)
-		.WriteUInt(vcd.first_timestamp)
-		.WriteUInt(vcd.current_timestamp())
+		.WriteUInt(vcd.timestamps.front())
+		.WriteUInt(vcd.timestamps.back())
 		.BeginOffset(memory_usage_pos) // record memory usage position
 		.WriteUInt<uint64_t>(0); // placeholder for memory usage
 		return make_pair(start_pos, memory_usage_pos);
