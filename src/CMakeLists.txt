@@ -55,6 +55,7 @@ endforeach()
 add_library(fstapi STATIC ${FSTAPI_SRCS})
 target_include_directories(fstapi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/fstapi)
 target_link_libraries(fstapi PRIVATE ZLIB::ZLIB lz4)
+set_target_properties(fstapi PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED YES)
 
 # Build unittest targets for each *.test.cpp and register with CTest
 enable_testing()
