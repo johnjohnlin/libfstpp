@@ -189,7 +189,8 @@ public:
 	uint64_t EmitValueChange(uint64_t current_time_index, const uint32_t* val, EncodingType encoding) override {
 		EmitValueChangeCommonPart(current_time_index, encoding);
 		for (unsigned i = 0; i < static_cast<unsigned>(encoding); ++i) {
-			if constexpr (sizeof(T) == 8) {
+			// C++17: replace this with if constexpr
+			if (sizeof(T) == 8) {
 				uint64_t v = val[1]; // high bits
 				v <<= 32;
 				v |= val[0]; // low bits
