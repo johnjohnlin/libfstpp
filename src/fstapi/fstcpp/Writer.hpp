@@ -1,6 +1,7 @@
 #pragma once
 // direct include
 #include "fstcpp/fst.hpp"
+#include "fstcpp/string_view.hpp"
 // C system headers
 // C++ standard library headers
 #include <algorithm>
@@ -23,8 +24,8 @@ class Writer;
 namespace detail {
 
 [[nodiscard]]
-static inline constexpr std::string_view SafeStringView(const char* str) noexcept {
-	return str ? std::string_view(str) : std::string_view{};
+static inline constexpr nonstd::string_view SafeStringView(const char* str) noexcept {
+	return str ? nonstd::string_view(str) : nonstd::string_view{};
 }
 
 // We define WriterWaveData here for better code inlining, no forward declaration
@@ -69,7 +70,7 @@ class Writer {
 	friend class WriterTest;
 public:
 	Writer() {}
-	Writer(const std::string_view name) { if (not name.empty()) Open(name); }
+	Writer(const nonstd::string_view name) { if (not name.empty()) Open(name); }
 	~Writer() { Close(); }
 
 	Writer(const Writer&) = delete;
@@ -78,7 +79,7 @@ public:
 	Writer& operator=(Writer&&) = delete;
 
 	// File control
-	void Open(const std::string_view name);
+	void Open(const nonstd::string_view name);
 	void Close();
 
 	//////////////////////////////
@@ -86,14 +87,14 @@ public:
 	//////////////////////////////
 	const Header& GetHeader() const;
 	void SetTimecale(int8_t timescale) { header_.timescale = timescale; }
-	void SetWriter(const std::string_view writer) {
+	void SetWriter(const nonstd::string_view writer) {
 		const auto len = std::min(writer.size(), sizeof(header_.writer));
 		std::copy_n(writer.data(), len, header_.writer);
 		if (len != sizeof(header_.writer)) {
 			header_.writer[len] = '\0';
 		}
 	}
-	void SetDate(const std::string_view date_str) {
+	void SetDate(const nonstd::string_view date_str) {
 		const auto len = date_str.size();
 		CHECK_EQ(len, sizeof(header_.date)-1);
 		std::copy_n(date_str.data(), len, header_.date);
@@ -104,7 +105,7 @@ public:
 	//////////////////////////////
 	// Change scope API
 	//////////////////////////////
-	void SetScope(Hierarchy::ScopeType scopetype, const std::string_view scopename, const std::string_view scopecomp);
+	void SetScope(Hierarchy::ScopeType scopetype, const nonstd::string_view scopename, const nonstd::string_view scopecomp);
 	void Upscope();
 
 	//////////////////////////////
@@ -112,18 +113,18 @@ public:
 	//////////////////////////////
 	void SetAttrBegin(
 		Hierarchy::AttrType attrtype, Hierarchy::AttrSubType subtype,
-		const std::string_view attrname, uint64_t arg
+		const nonstd::string_view attrname, uint64_t arg
 	);
 	inline void SetAttrEnd() {
 		hierarchy_buffer_.put(static_cast<char>(Hierarchy::ScopeControlType::eGenAttrEnd));
 	}
 	EnumHandle CreateEnumTable(
-		const std::string_view name,
+		const nonstd::string_view name,
 		uint32_t min_valbits,
-		const std::vector<std::pair<std::string_view, std::string_view>>& literal_val_arr
+		const std::vector<std::pair<nonstd::string_view, nonstd::string_view>>& literal_val_arr
 	);
 	inline void EmitEnumTableRef(EnumHandle handle) {
-		SetAttrBegin(Hierarchy::AttrType::eMisc, Hierarchy::AttrSubType::eMisc_EnumTable, std::string_view{}, handle);
+		SetAttrBegin(Hierarchy::AttrType::eMisc, Hierarchy::AttrSubType::eMisc_EnumTable, nonstd::string_view{}, handle);
 	}
 	inline void SetWriterPackType(WriterPackType pack_type) {
 		CHECK_NE(pack_type_, WriterPackType::eZlib);
@@ -136,12 +137,12 @@ public:
 	//////////////////////////////
 	Handle CreateVar(
 		Hierarchy::VarType vartype, Hierarchy::VarDirection vardir,
-		uint32_t bitwidth, const std::string_view name,
+		uint32_t bitwidth, const nonstd::string_view name,
 		uint32_t alias_handle
 	);
 	Handle CreateVar2(
 		Hierarchy::VarType vartype, Hierarchy::VarDirection vardir,
-		uint32_t bitwidth, const std::string_view name, uint32_t alias_handle, const std::string_view type,
+		uint32_t bitwidth, const nonstd::string_view name, uint32_t alias_handle, const nonstd::string_view type,
 		Hierarchy::SupplementalVarType svt, Hierarchy::SupplementalDataType sdt
 	);
 
@@ -162,16 +163,16 @@ public:
 	//////////////////////////////
 	// Constructor
 	Writer(const char* name) : Writer(detail::SafeStringView(name)) {}
-	Writer(const std::string& name) : Writer(std::string_view(name)) {}
+	Writer(const std::string& name) : Writer(nonstd::string_view(name)) {}
 	// Open
-	inline void Open(const std::string& name) { Open(std::string_view(name)); }
+	inline void Open(const std::string& name) { Open(nonstd::string_view(name)); }
 	// SetWriter
-	inline void SetWriter(const char* writer) { if (writer) SetWriter(std::string_view(writer)); }
-	inline void SetWriter(const std::string& writer) { SetWriter(std::string_view(writer)); }
+	inline void SetWriter(const char* writer) { if (writer) SetWriter(nonstd::string_view(writer)); }
+	inline void SetWriter(const std::string& writer) { SetWriter(nonstd::string_view(writer)); }
 	// SetDate
-	inline void SetDate(const char* date_str) { if (date_str) SetDate(std::string_view(date_str)); }
-	inline void SetDate(const std::string& date_str) { SetDate(std::string_view(date_str)); }
-	inline void SetDate(const std::tm* d) { SetDate(std::string_view(std::asctime(d))); }
+	inline void SetDate(const char* date_str) { if (date_str) SetDate(nonstd::string_view(date_str)); }
+	inline void SetDate(const std::string& date_str) { SetDate(nonstd::string_view(date_str)); }
+	inline void SetDate(const std::tm* d) { SetDate(nonstd::string_view(std::asctime(d))); }
 	inline void SetDate() {
 		// set date to now
 		std::time_t t = std::time(nullptr);
@@ -184,16 +185,16 @@ public:
 		uint32_t alias_handle
 	) {
 		CHECK_NE(name, nullptr);
-		return CreateVar(vartype, vardir, bitwidth, std::string_view(name), alias_handle);
+		return CreateVar(vartype, vardir, bitwidth, nonstd::string_view(name), alias_handle);
 	}
 	inline Handle CreateVar(
 		Hierarchy::VarType vartype, Hierarchy::VarDirection vardir,
 		uint32_t bitwidth, const std::string& name,
 		uint32_t alias_handle
-	) { return CreateVar(vartype, vardir, bitwidth, std::string_view(name), alias_handle); }
+	) { return CreateVar(vartype, vardir, bitwidth, nonstd::string_view(name), alias_handle); }
 	// SetScope
 	inline void SetScope(Hierarchy::ScopeType scopetype, const std::string& scopename, const std::string& scopecomp) {
-		SetScope(scopetype, std::string_view(scopename), std::string_view(scopecomp));
+		SetScope(scopetype, nonstd::string_view(scopename), nonstd::string_view(scopecomp));
 	}
 	inline void SetScope(Hierarchy::ScopeType scopetype, const char* scopename, const char* scopecomp) {
 		SetScope(scopetype, detail::SafeStringView(scopename), detail::SafeStringView(scopecomp));

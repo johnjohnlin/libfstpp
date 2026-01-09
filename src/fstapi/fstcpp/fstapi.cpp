@@ -1,16 +1,17 @@
 // direct include
 #include "gtkwave/fstapi.h"
+#include "fstcpp/string_view.hpp"
 // C system headers
 // C++ standard library headers
 #include <iostream>
 #include <string>
-#include <string_view>
 #include <cstdlib>
 // Other libraries' .h files.
 // Your project's .h files.
 #include "fstcpp/Writer.hpp"
 
 using namespace std;
+using namespace nonstd;
 
 struct fstWriterContext {
 	fst::Writer writer;

@@ -1,5 +1,6 @@
 // direct include
 #include "fstcpp/Writer.hpp"
+#include "fstcpp/string_view.hpp"
 // C system headers
 // C++ standard library headers
 #include <bit>
@@ -24,6 +25,7 @@
 #include "fstcpp/fst_file.hpp"
 
 using namespace std;
+using namespace nonstd;
 
 namespace fst {
 

@@ -9,6 +9,7 @@
 // Other libraries' .h files.
 // Your project's .h files.
 #include "fstcpp/fst_file.hpp"
+#include "fstcpp/string_view.hpp"
 
 namespace fst {
 
@@ -124,18 +125,18 @@ struct StreamWriteHelper {
 	}
 
 	// Write the string, non-null-terminated
-	StreamWriteHelper& WriteString(const std::string_view str) {
+	StreamWriteHelper& WriteString(const nonstd::string_view str) {
 		os->write(str.data(), str.size());
 		return *this;
 	}
 
 	// Write the string, null-terminated
-	StreamWriteHelper& WriteString0(const std::string_view str) {
+	StreamWriteHelper& WriteString0(const nonstd::string_view str) {
 		os->write(str.data(), str.size()).put('\0');
 		return *this;
 	}
-	StreamWriteHelper& WriteString(const std::string& str) { return WriteString0(std::string_view(str)); }
-	StreamWriteHelper& WriteString(const char* str) { return WriteString0(std::string_view(str)); }
+	StreamWriteHelper& WriteString(const std::string& str) { return WriteString0(nonstd::string_view(str)); }
+	StreamWriteHelper& WriteString(const char* str) { return WriteString0(nonstd::string_view(str)); }
 
 	StreamWriteHelper& Write(const char* ptr, size_t size) {
 		os->write(ptr, size);
