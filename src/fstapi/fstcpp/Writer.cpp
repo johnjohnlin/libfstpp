@@ -119,7 +119,9 @@ public:
 			value_changes.resize(0);
 		}
 		change_entries.push_back({current_time_index, EncodingType::eBinary});
-		value_changes.push_back(bit_cast<double>(val));
+        double dst;
+        std::memcpy(&dst, &val, sizeof(double));
+		value_changes.push_back(dst);
 		return ComputeEmitMemory(EncodingType::eBinary);
 	}
 
