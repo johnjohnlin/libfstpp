@@ -72,7 +72,7 @@ struct HeaderInfo {
 	};
 	static constexpr unsigned total_size = Offset::timezero + Size::timezero;
 	static constexpr double kEndianessMagicIdentifier = 2.7182818284590452354;
-	static_assert(total_size == 321);
+	static_assert(total_size == 321, "Total size of HeaderInfo must be 321 bytes");
 };
 
 } // namespace fst
