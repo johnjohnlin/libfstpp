@@ -2,7 +2,6 @@
 // direct include
 // C system headers
 // C++ standard library headers
-#include <bit>
 #include <cstdint>
 // Other libraries' .h files.
 // Your project's .h files.
@@ -189,7 +188,6 @@ struct Header {
 	uint64_t num_vars = 0; // #CreateVar calls, including aliases
 	uint64_t num_handles = 0; // #unique handles, excluding aliases, shall be <= num_vars
 	uint64_t num_value_change_data_blocks = 1;
-	std::endian real_endianness = std::endian::native;
 	char writer[128] {};
 	char date[26] {};
 	FileType filetype = FileType::eVerilog;

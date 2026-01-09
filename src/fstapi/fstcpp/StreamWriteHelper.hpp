@@ -28,6 +28,13 @@ U byteswap(U u) {
 
 } // namespace platform
 
+// Native endianness detection
+constexpr bool native_endian_is_little() {
+	union { uint16_t i; uint8_t c[2]; } u = {0x0100};
+	return u.c[1];
+}
+
+
 struct StreamWriteHelper {
 	std::ostream* os;
 
@@ -38,7 +45,7 @@ struct StreamWriteHelper {
 	// We do not provide little-endian version since FST only uses big-endian
 	template<typename U>
 	StreamWriteHelper& WriteUInt(U u) {
-		if constexpr (std::endian::native == std::endian::little) {
+		if constexpr (native_endian_is_little()) {
 			u = platform::byteswap(u);
 		}
 		os->write(reinterpret_cast<const char*>(&u), sizeof(u));
@@ -54,7 +61,7 @@ struct StreamWriteHelper {
 		// Shift left to align the MSB to the MSB of the uint
 		u <<= sizeof(u) * 8 - bitwidth;
 		// Write the first (bitwidth+7)/8 bytes
-		if constexpr (std::endian::native == std::endian::little) {
+		if constexpr (native_endian_is_little()) {
 			u = platform::byteswap(u);
 		}
 		os->write(reinterpret_cast<const char*>(&u), (bitwidth + 7) / 8);
