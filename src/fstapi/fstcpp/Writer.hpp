@@ -184,7 +184,7 @@ public:
 		uint32_t bitwidth, const char* name,
 		uint32_t alias_handle
 	) {
-		CHECK_NE(name, nullptr);
+		CHECK_NE(name, static_cast<void*>(nullptr));
 		return CreateVar(vartype, vardir, bitwidth, nonstd::string_view(name), alias_handle);
 	}
 	inline Handle CreateVar(
