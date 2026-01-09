@@ -694,13 +694,15 @@ void Writer::EmitValueChange(Handle handle, const char *val) {
 	const unsigned num_words = (bitwidth + 63) / 64;
 	packed_value_buffer.assign(num_words, 0);
 	for (unsigned i = 0; i < num_words; ++i) {
-		auto [ptr, ec] = from_chars(
-			val - min((i+1)*64, bitwidth),
-			val - 64*i,
-			packed_value_buffer[i],
-			2
-		);
-		CHECK(ec == errc() and ptr == val - 64*i);
+		// C++14-compatible: use std::string and std::stoull
+		const char* start = val - std::min((i+1)*64, bitwidth);
+		const char* end = val - 64*i;
+		std::string bits(start, end);
+		try {
+			packed_value_buffer[i] = std::stoull(bits, nullptr, 2);
+		} catch (const std::exception&) {
+			CHECK(false && "Failed to parse binary string to uint64_t");
+		}
 	}
 
 	if (bitwidth <= 64) {
@@ -784,7 +786,10 @@ void Writer::AppendGeometry_(ostream& os) {
 		return;
 	}
 	vector<char> geometry_compressed_data = CompressUsingZlib(geometry_uncompressed_data);
-	const auto [selected_data, selected_size] = SelectSmaller(geometry_compressed_data, geometry_uncompressed_data);
+    // TODO: Replace with structured binding in C++17
+	auto selected_pair = SelectSmaller(geometry_compressed_data, geometry_uncompressed_data);
+	const char* selected_data = selected_pair.first;
+	size_t selected_size = selected_pair.second;
 
 	StreamWriteHelper h(os);
 	h
@@ -893,7 +898,10 @@ vector<int64_t> detail::ValueChangeData::UniquifyWaveData(
 			continue;
 		}
 		// insert vec->i to data_map if not exists
-		auto [it, inserted] = data_map.emplace(&data[i], static_cast<int64_t>(i));
+        auto p = data_map.emplace(&data[i], static_cast<int64_t>(i));
+        auto it = p.first;
+        auto inserted = p.second;
+
 		if (not inserted) {
 			// duplicated wave data found
 			positions[i] = -(it->second + 1);
@@ -1004,7 +1012,7 @@ void Writer::FlushValueChangeDataConstPart_(const detail::ValueChangeData& vcd, 
 	// 1. Write Block Header & Global Fields (start/end/mem_req placeholder)
 	// FST_BL_VCDATA_DYN_ALIAS2 (8) maps to WaveDataVersion3 in fst_file.hpp
 	// The positions we cannot fill in yet
-	const auto [start_pos, memory_usage_pos] = [&]() {
+	const auto p_tmp1 = [&]() {
 		streamoff start_pos, memory_usage_pos;
 		h
 		.BeginOffset(start_pos) // record start position
@@ -1015,6 +1023,8 @@ void Writer::FlushValueChangeDataConstPart_(const detail::ValueChangeData& vcd, 
 		.WriteUInt<uint64_t>(0); // placeholder for memory usage
 		return make_pair(start_pos, memory_usage_pos);
 	}();
+    auto start_pos = p_tmp1.first;
+    auto memory_usage_pos = p_tmp1.second;
 
 	// 2. Bits Section
 	// Generate, Compress, Write
@@ -1036,7 +1046,7 @@ void Writer::FlushValueChangeDataConstPart_(const detail::ValueChangeData& vcd, 
 	// 3. Waves Section
 	// Generate (Compute/Uniquify/Encode), Write
 	// Note: We need positions for the next section
-	const auto [positions, memory_usage] = [&]() {
+	const auto p_tmp2 = [&]() {
 		auto wave_data = vcd.ComputeWaveData();
 		auto positions = vcd.UniquifyWaveData(wave_data);
 		const size_t memory_usage = accumulate(
@@ -1060,6 +1070,8 @@ void Writer::FlushValueChangeDataConstPart_(const detail::ValueChangeData& vcd, 
 		.Write(raw.data(), raw.size());
 		return make_pair(positions, memory_usage);
 	}();
+    auto positions = p_tmp2.first;
+    auto memory_usage = p_tmp2.second;
 
 	// 4. Position Section
 	// Encode, Write
@@ -1198,17 +1210,17 @@ EnumHandle Writer::CreateEnumTable(
 	attr_str += to_string(literal_val_arr.size());
 	attr_str += ' ';
 
-	for (const auto& [literal, val] : literal_val_arr) {
+	for (const auto& p : literal_val_arr) {
 		// literal
-		AppendEscToString(literal, attr_str);
+		AppendEscToString(p.first, attr_str);
 		attr_str += ' ';
 	}
-	for (const auto& [literal, val] : literal_val_arr) {
+	for (const auto& p : literal_val_arr) {
 		// val (with padding)
-		if (min_valbits > 0 and val.size() < min_valbits) {
-			attr_str.insert(attr_str.end(), min_valbits - val.size(), '0');
+		if (min_valbits > 0 and p.second.size() < min_valbits) {
+			attr_str.insert(attr_str.end(), min_valbits - p.second.size(), '0');
 		}
-		AppendEscToString(val, attr_str);
+		AppendEscToString(p.second, attr_str);
 		attr_str += ' ';
 	}
 	attr_str.pop_back(); // remove last space
