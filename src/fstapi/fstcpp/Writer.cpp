@@ -22,6 +22,7 @@
 #include "fstcpp/assertion.h"
 #include "fstcpp/fst.hpp"
 #include "fstcpp/fst_file.hpp"
+#include "fstcpp/fst_string_view.hpp"
 
 using namespace std;
 

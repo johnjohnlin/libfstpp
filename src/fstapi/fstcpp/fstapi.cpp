@@ -8,9 +8,9 @@
 // Other libraries' .h files.
 // Your project's .h files.
 #include "fstcpp/Writer.hpp"
+#include "fstcpp/fst_string_view.hpp"
 
 using namespace std;
-using namespace nonstd;
 
 struct fstWriterContext {
 	fst::Writer writer;
@@ -194,7 +194,7 @@ fstEnumHandle fstWriterCreateEnumTable(
 	const char **val_arr
 ) {
 	if (not ctx or not name or not literal_arr or not val_arr) return 0;
-	vector<pair<string_view, string_view>> literal_val_arr;
+	vector<pair<fst::string_view_, fst::string_view_>> literal_val_arr;
 	literal_val_arr.reserve(elem_count);
 	for (uint32_t i = 0; i < elem_count; ++i) {
 		literal_val_arr.emplace_back(literal_arr[i], val_arr[i]);

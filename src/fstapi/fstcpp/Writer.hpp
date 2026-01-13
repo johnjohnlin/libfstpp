@@ -14,6 +14,7 @@
 // Other libraries' .h files.
 // Your project's .h files.
 #include "fstcpp/assertion.h"
+#include "fstcpp/fst_string_view.hpp"
 
 namespace fst {
 
