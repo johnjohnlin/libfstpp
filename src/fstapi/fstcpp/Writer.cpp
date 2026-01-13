@@ -1,6 +1,5 @@
 // direct include
 #include "fstcpp/Writer.hpp"
-#include "fstcpp/string_view.hpp"
 // C system headers
 // C++ standard library headers
 #include <bit>
@@ -25,7 +24,6 @@
 #include "fstcpp/fst_file.hpp"
 
 using namespace std;
-using namespace nonstd;
 
 namespace fst {
 
@@ -119,8 +117,8 @@ public:
 			value_changes.resize(0);
 		}
 		change_entries.push_back({current_time_index, EncodingType::eBinary});
-        double dst;
-        std::memcpy(&dst, &val, sizeof(double));
+		double dst;
+		std::memcpy(&dst, &val, sizeof(double));
 		value_changes.push_back(dst);
 		return ComputeEmitMemory(EncodingType::eBinary);
 	}
@@ -511,7 +509,7 @@ ValueChangeData::VariableInfoBase::Create(uint32_t bitwidth, bool is_real) {
 
 } // namespace detail
 
-void Writer::Open(const string_view name) {
+void Writer::Open(const string_view_ name) {
 	CHECK(not main_fst_file_.is_open());
 	main_fst_file_.open(string(name), ios::binary);
 	// reserve space for header, we will write it at Close(), append geometry and hierarchy at the end
@@ -544,7 +542,7 @@ void Writer::Close() {
 /////////////////////////////////////////
 void Writer::SetScope(
 	Hierarchy::ScopeType scopetype,
-	const string_view scopename, const string_view scopecomp
+	const string_view_ scopename, const string_view_ scopecomp
 ) {
 	CHECK(not hierarchy_finalized_);
 	StreamWriteHelper h(hierarchy_buffer_);
@@ -565,7 +563,7 @@ void Writer::Upscope() {
 
 Handle Writer::CreateVar(
 	Hierarchy::VarType vartype, Hierarchy::VarDirection vardir,
-	uint32_t bitwidth, const string_view name,
+	uint32_t bitwidth, const string_view_ name,
 	Handle alias_handle
 ) {
 	CHECK(not hierarchy_finalized_);
@@ -629,7 +627,7 @@ Handle Writer::CreateVar(
 // LCOV_EXCL_START
 Handle Writer::CreateVar2(
 	Hierarchy::VarType vartype, Hierarchy::VarDirection vardir,
-	uint32_t bitwidth, const string_view name, Handle alias_handle, const string_view type,
+	uint32_t bitwidth, const string_view_ name, Handle alias_handle, const string_view_ type,
 	Hierarchy::SupplementalVarType svt, Hierarchy::SupplementalDataType sdt
 ) {
 	CHECK(not hierarchy_finalized_);
@@ -694,14 +692,13 @@ void Writer::EmitValueChange(Handle handle, const char *val) {
 	const unsigned num_words = (bitwidth + 63) / 64;
 	packed_value_buffer.assign(num_words, 0);
 	for (unsigned i = 0; i < num_words; ++i) {
-		// C++14-compatible: use std::string and std::stoull
 		const char* start = val - std::min((i+1)*64, bitwidth);
 		const char* end = val - 64*i;
-		std::string bits(start, end);
-		try {
-			packed_value_buffer[i] = std::stoull(bits, nullptr, 2);
-		} catch (const std::exception&) {
-			CHECK(false && "Failed to parse binary string to uint64_t");
+		packed_value_buffer[i] = 0;
+		for (const char* p = start; p < end; ++p) {
+			// No checking for invalid characters, follow original C implementation
+			packed_value_buffer[i] <<= 1;
+			packed_value_buffer[i] |= (*p - '0');
 		}
 	}
 
@@ -786,10 +783,10 @@ void Writer::AppendGeometry_(ostream& os) {
 		return;
 	}
 	vector<char> geometry_compressed_data = CompressUsingZlib(geometry_uncompressed_data);
-    // TODO: Replace with structured binding in C++17
-	auto selected_pair = SelectSmaller(geometry_compressed_data, geometry_uncompressed_data);
-	const char* selected_data = selected_pair.first;
-	size_t selected_size = selected_pair.second;
+	// TODO: Replace with structured binding in C++17
+	const auto selected_pair = SelectSmaller(geometry_compressed_data, geometry_uncompressed_data);
+	const auto selected_data = selected_pair.first;
+	const auto selected_size = selected_pair.second;
 
 	StreamWriteHelper h(os);
 	h
@@ -883,8 +880,8 @@ vector<int64_t> detail::ValueChangeData::UniquifyWaveData(
 	vector<int64_t> positions(data.size(), 0);
 	struct MyHash {
 		size_t operator()(const vector<char>* vec) const {
-			const string_view sv(vec->data(), vec->size());
-			return hash<string_view>()(sv);
+			const string_view_ sv(vec->data(), vec->size());
+			return hash<string_view_>()(sv);
 		}
 	};
 	struct MyEqual {
@@ -898,9 +895,9 @@ vector<int64_t> detail::ValueChangeData::UniquifyWaveData(
 			continue;
 		}
 		// insert vec->i to data_map if not exists
-        auto p = data_map.emplace(&data[i], static_cast<int64_t>(i));
-        auto it = p.first;
-        auto inserted = p.second;
+		auto p = data_map.emplace(&data[i], static_cast<int64_t>(i));
+		auto it = p.first;
+		auto inserted = p.second;
 
 		if (not inserted) {
 			// duplicated wave data found
@@ -1023,8 +1020,8 @@ void Writer::FlushValueChangeDataConstPart_(const detail::ValueChangeData& vcd, 
 		.WriteUInt<uint64_t>(0); // placeholder for memory usage
 		return make_pair(start_pos, memory_usage_pos);
 	}();
-    auto start_pos = p_tmp1.first;
-    auto memory_usage_pos = p_tmp1.second;
+	const auto start_pos = p_tmp1.first;
+	const auto memory_usage_pos = p_tmp1.second;
 
 	// 2. Bits Section
 	// Generate, Compress, Write
@@ -1070,8 +1067,8 @@ void Writer::FlushValueChangeDataConstPart_(const detail::ValueChangeData& vcd, 
 		.Write(raw.data(), raw.size());
 		return make_pair(positions, memory_usage);
 	}();
-    auto positions = p_tmp2.first;
-    auto memory_usage = p_tmp2.second;
+	const auto positions = p_tmp2.first;
+	const auto memory_usage = p_tmp2.second;
 
 	// 4. Position Section
 	// Encode, Write
@@ -1114,7 +1111,7 @@ void Writer::FlushValueChangeDataConstPart_(const detail::ValueChangeData& vcd, 
 
 namespace { // Helper functions for CreateEnumTable
 
-void AppendEscToString(const string_view in, string& out) {
+void AppendEscToString(const string_view_ in, string& out) {
 	for (char c : in) {
 		switch (c) {
 		case '\a': { out += "\\a"; break; }
@@ -1149,7 +1146,7 @@ void AppendEscToString(const string_view in, string& out) {
 
 void Writer::SetAttrBegin(
 	Hierarchy::AttrType attrtype, Hierarchy::AttrSubType subtype,
-	const string_view attrname, uint64_t arg
+	const string_view_ attrname, uint64_t arg
 ) {
 	CHECK(not hierarchy_finalized_);
 
@@ -1192,10 +1189,21 @@ void Writer::SetAttrBegin(
 	.WriteLEB128(arg);
 }
 
+namespace {
+
+// overload for string += string_view_
+// Remove this once C++17 is required
+string& operator+=(string& lhs, const string_view_ rhs) {
+	lhs.append(rhs.data(), rhs.size());
+	return lhs;
+}
+
+} // namespace
+
 EnumHandle Writer::CreateEnumTable(
-	const string_view name,
+	const string_view_ name,
 	uint32_t min_valbits,
-	const vector<pair<string_view, string_view>>& literal_val_arr
+	const vector<pair<string_view_, string_view_>>& literal_val_arr
 ) {
 	EnumHandle handle = 0;
 
@@ -1211,16 +1219,18 @@ EnumHandle Writer::CreateEnumTable(
 	attr_str += ' ';
 
 	for (const auto& p : literal_val_arr) {
+		const auto& literal = p.first;
 		// literal
-		AppendEscToString(p.first, attr_str);
+		AppendEscToString(literal, attr_str);
 		attr_str += ' ';
 	}
 	for (const auto& p : literal_val_arr) {
+		const auto& val = p.second;
 		// val (with padding)
-		if (min_valbits > 0 and p.second.size() < min_valbits) {
-			attr_str.insert(attr_str.end(), min_valbits - p.second.size(), '0');
+		if (min_valbits > 0 and val.size() < min_valbits) {
+			attr_str.insert(attr_str.end(), min_valbits - val.size(), '0');
 		}
-		AppendEscToString(p.second, attr_str);
+		AppendEscToString(val, attr_str);
 		attr_str += ' ';
 	}
 	attr_str.pop_back(); // remove last space

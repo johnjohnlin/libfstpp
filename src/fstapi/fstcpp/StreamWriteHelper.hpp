@@ -14,26 +14,26 @@
 namespace fst {
 
 namespace platform {
-// C++23 byteswap fallback for C++20 (not constexpr, using intrinsics)
+
+// For C++14
+// Can remove once C++23 is required
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 template<typename U>
-U byteswap(U u) {
-	if constexpr (sizeof(U) == 8) {
-		u = __builtin_bswap64(u);
-	} else if constexpr (sizeof(U) == 4) {
-		u = __builtin_bswap32(u);
-	} else if constexpr (sizeof(U) == 2) {
-		u = __builtin_bswap16(u);
-	}
+U to_big_endian(U u) {
 	return u;
 }
+#else
+template<typename U> U to_big_endian(U u, std::integral_constant<size_t, 1>) { return u; }
+template<typename U> U to_big_endian(U u, std::integral_constant<size_t, 2>) { return __builtin_bswap16(u); }
+template<typename U> U to_big_endian(U u, std::integral_constant<size_t, 4>) { return __builtin_bswap32(u); }
+template<typename U> U to_big_endian(U u, std::integral_constant<size_t, 8>) { return __builtin_bswap64(u); }
+template<typename U>
+U to_big_endian(U u) {
+	return platform::to_big_endian(u, std::integral_constant<size_t, sizeof(U)>());
+}
+#endif
 
 } // namespace platform
-
-// Native endianness detection
-constexpr bool native_endian_is_little() {
-	union { uint16_t i; uint8_t c[2]; } u = {0x0100};
-	return u.c[1];
-}
 
 
 struct StreamWriteHelper {
@@ -46,9 +46,7 @@ struct StreamWriteHelper {
 	// We do not provide little-endian version since FST only uses big-endian
 	template<typename U>
 	StreamWriteHelper& WriteUInt(U u) {
-		if (native_endian_is_little()) {
-			u = platform::byteswap(u);
-		}
+		u = platform::to_big_endian(u);
 		os->write(reinterpret_cast<const char*>(&u), sizeof(u));
 		return *this;
 	}
@@ -62,9 +60,7 @@ struct StreamWriteHelper {
 		// Shift left to align the MSB to the MSB of the uint
 		u <<= sizeof(u) * 8 - bitwidth;
 		// Write the first (bitwidth+7)/8 bytes
-		if (native_endian_is_little()) {
-			u = platform::byteswap(u);
-		}
+		u = platform::to_big_endian(u);
 		os->write(reinterpret_cast<const char*>(&u), (bitwidth + 7) / 8);
 		return *this;
 	}

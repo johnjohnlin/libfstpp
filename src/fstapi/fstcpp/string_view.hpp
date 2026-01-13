@@ -39,7 +39,6 @@
 #endif
 
 // string_view selection and configuration:
-
 #if !defined( nssv_CONFIG_SELECT_STRING_VIEW )
 # define nssv_CONFIG_SELECT_STRING_VIEW  ( nssv_HAVE_STD_STRING_VIEW ? nssv_STRING_VIEW_STD : nssv_STRING_VIEW_NONSTD )
 #endif

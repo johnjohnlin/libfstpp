@@ -1,6 +1,5 @@
 // direct include
 #include "gtkwave/fstapi.h"
-#include "fstcpp/string_view.hpp"
 // C system headers
 // C++ standard library headers
 #include <iostream>

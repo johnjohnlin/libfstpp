@@ -4,9 +4,16 @@
 // C++ standard library headers
 #include <cstdint>
 // Other libraries' .h files.
+// Force to use nonstd::string_view
+#define nssv_CONFIG_SELECT_STRING_VIEW nssv_STRING_VIEW_NONSTD
+// This is the only place to include string_view.hpp, use fst::string_view_ elsewhere
+// If C++17 is required in the future, we can change the type alias to std::string_view without changing other files
+#include "fstcpp/string_view.hpp"
 // Your project's .h files.
 
 namespace fst {
+
+using string_view_ = nonstd::sv_lite::string_view;
 
 typedef uint32_t Handle;
 typedef uint32_t EnumHandle;
