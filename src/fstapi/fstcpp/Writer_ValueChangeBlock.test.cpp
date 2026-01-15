@@ -2,17 +2,13 @@
 #include "fstcpp/Writer.hpp"
 // C system headers
 // C++ standard library headers
-#include <algorithm>
 #include <cstdint>
-#include <cstring>
 #include <iostream>
 #include <numeric>
 #include <sstream>
 // Other libraries' .h files.
 #include <gtest/gtest.h>
 // Your project's .h files.
-#include "fstcpp/StreamWriteHelper.hpp"
-#include "fstcpp/fst_file.hpp"
 
 using namespace std;
 
@@ -47,7 +43,7 @@ protected:
         ostringstream &os, const vector<vector<char>> &data,
         vector<int64_t> &positions
     ) {
-        return detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(os, data, positions);
+        return detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(os, data, positions, WriterPackType::eNoCompression);
     }
 
     static void FlushValueChangeData_EncodedPositions(

@@ -2,8 +2,6 @@
 #include "fstcpp/Writer.hpp"
 // C system headers
 // C++ standard library headers
-#include <bit>
-#include <charconv>
 #include <iostream>
 #include <numeric>
 #include <sstream>
@@ -528,7 +526,7 @@ void Writer::Close() {
 	if (header_.start_time == kInvalidTime) {
 		header_.start_time = 0;
 	}
-	FlushValueChangeData_(value_change_data_, main_fst_file_);
+	FlushValueChangeData_(value_change_data_, main_fst_file_, pack_type_);
 	AppendGeometry_(main_fst_file_);
 	AppendHierarchy_(main_fst_file_);
 	AppendBlackout_(main_fst_file_);
@@ -645,7 +643,7 @@ void Writer::EmitTimeChange(uint64_t tim) {
 	FinalizeHierarchy_();
 
 	if (value_change_data_usage_ > value_change_data_flush_threshold_) {
-		FlushValueChangeData_(value_change_data_, main_fst_file_);
+		FlushValueChangeData_(value_change_data_, main_fst_file_, pack_type_);
 	}
 
 	// Update header
@@ -742,11 +740,42 @@ void Writer::WriteHeader_(const Header& header, ostream& os) {
 
 namespace { // compression helpers
 
-vector<char> CompressUsingZlib(const string& uncompressed_data) {
+// TODO: replace with C++20 concepts
+#if 0
+template <typename T>
+concept BufferLike = requires(T v) {
+	{ v.data() } -> std::same_as<char*>;
+	{ v.size() } -> std::same_as<std::size_t>;
+};
+#endif
+
+// These API pass compressed_data to avoid frequent reallocations
+template<typename BufferLike1, typename BufferLike2>
+void CompressUsingLz4(
+	const BufferLike1& uncompressed_data,
+	BufferLike2& compressed_data
+) {
+	const int uncompressed_size = uncompressed_data.size();
+	const int compressed_bound = LZ4_compressBound(uncompressed_size);
+	compressed_data.resize(compressed_bound);
+	const int compressed_size = LZ4_compress_default(
+		uncompressed_data.data(),
+		compressed_data.data(),
+		uncompressed_size,
+		compressed_bound
+	);
+	compressed_data.resize(compressed_size);
+}
+
+template<typename BufferLike1, typename BufferLike2>
+void CompressUsingZlib(
+	const BufferLike1& uncompressed_data,
+	BufferLike2& compressed_data
+) {
 	// compress using zlib
 	const uLong uncompressed_size = uncompressed_data.size();
 	uLongf compressed_bound = compressBound(uncompressed_size);
-	vector<char> compressed_data(compressed_bound);
+	compressed_data.resize(compressed_bound);
 	const auto z_status = compress2(
 		reinterpret_cast<Bytef*>(compressed_data.data()),
 		&compressed_bound,
@@ -758,10 +787,10 @@ vector<char> CompressUsingZlib(const string& uncompressed_data) {
 		throw runtime_error("Failed to compress data with zlib, error code: " + to_string(z_status));
 	}
 	compressed_data.resize(compressed_bound);
-	return compressed_data;
 }
 
-auto SelectSmaller(const vector<char>& compressed_data, const string& uncompressed_data) {
+template<typename BufferLike1, typename BufferLike2>
+auto SelectSmaller(const BufferLike1& compressed_data, const BufferLike2& uncompressed_data) {
 	pair<const char*, size_t> ret;
 	if (compressed_data.size() < uncompressed_data.size()) {
 		ret.first = compressed_data.data();
@@ -783,7 +812,8 @@ void Writer::AppendGeometry_(ostream& os) {
 		// skip the geometry block if there is no data
 		return;
 	}
-	vector<char> geometry_compressed_data = CompressUsingZlib(geometry_uncompressed_data);
+	vector<char> geometry_compressed_data;
+	CompressUsingZlib(geometry_uncompressed_data, geometry_compressed_data);
 	// TODO: Replace with structured binding in C++17
 	const auto selected_pair = SelectSmaller(geometry_compressed_data, geometry_uncompressed_data);
 	const auto selected_data = selected_pair.first;
@@ -913,7 +943,8 @@ vector<int64_t> detail::ValueChangeData::UniquifyWaveData(
 uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
 	ostream& os,
 	const vector<vector<char>>& data,
-	vector<int64_t>& positions
+	vector<int64_t>& positions,
+	WriterPackType pack_type
 ) {
 	// After this function, positions[i] is:
 	//  - = 0: If variable i has no wave data
@@ -923,19 +954,35 @@ uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
 	StreamWriteHelper h(os);
 	int64_t previous_size = 1;
 	uint64_t written_count = 0;
+	vector<char> compressed_data;
 	for (size_t i = 0; i < positions.size(); ++i) {
 		if (positions[i] < 0) {
 			// duplicate (negative index), do nothing
 		} else if (data[i].empty()) {
 			// no change (empty data), positions[i] remains 0
 		} else {
+			// try to compress
+			const char* selected_data;
+			size_t selected_size;
+			if (pack_type == WriterPackType::eNoCompression) {
+				selected_data = data[i].data();
+				selected_size = data[i].size();
+			} else {
+				CompressUsingLz4(data[i], compressed_data);
+				const auto selected_pair = SelectSmaller(compressed_data, data[i]);
+				selected_data = selected_pair.first;
+				selected_size = selected_pair.second;
+			}
+			const bool is_compressed = selected_data != data[i].data();
+
 			// non-empty unique data, write it
 			written_count++;
 			streamoff bytes_written;
 			h
 			.BeginOffset(bytes_written)
-			.WriteLEB128(0) // 0 means no compression (TODO: implement compression)
-			.Write(data[i].data(), data[i].size())
+			// FST spec: 0 means no compression, >0 for the size of the original data
+			.WriteLEB128(is_compressed ? data[i].size() : 0)
+			.Write(selected_data, selected_size)
 			.EndOffset(&bytes_written);
 			positions[i] = previous_size;
 			previous_size = bytes_written;
@@ -999,7 +1046,11 @@ void detail::ValueChangeData::WriteTimestamps(ostream& os) const {
 	}
 }
 
-void Writer::FlushValueChangeDataConstPart_(const detail::ValueChangeData& vcd, ostream& os) {
+void Writer::FlushValueChangeDataConstPart_(
+	const detail::ValueChangeData& vcd,
+	ostream& os,
+	WriterPackType pack_type
+) {
 	if (vcd.timestamps.empty()) {
 		return;
 	}
@@ -1044,7 +1095,7 @@ void Writer::FlushValueChangeDataConstPart_(const detail::ValueChangeData& vcd, 
 	// 3. Waves Section
 	// Generate (Compute/Uniquify/Encode), Write
 	// Note: We need positions for the next section
-	const auto p_tmp2 = [&]() {
+	const auto p_tmp2 = [&,pack_type]() {
 		auto wave_data = vcd.ComputeWaveData();
 		auto positions = vcd.UniquifyWaveData(wave_data);
 		const size_t memory_usage = accumulate(
@@ -1052,7 +1103,7 @@ void Writer::FlushValueChangeDataConstPart_(const detail::ValueChangeData& vcd, 
 			[](size_t a, const auto& b) { return a + b.size();
 		});
 		stringstream ss;
-		const uint64_t count = detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(ss, wave_data, positions);
+		const uint64_t count = detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(ss, wave_data, positions, pack_type);
 		(void)count;
 		string raw = ss.str();
 		// NOTE: While we write '4' for LZ4, we write uncompressed data.

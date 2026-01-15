@@ -45,6 +45,7 @@ protected:
 
 TEST_F(WriterTest, CreateVar) {
     Writer writer;
+    writer.SetWriterPackType(WriterPackType::eNoCompression);
     // Call CreateVar
     EXPECT_EQ(writer.CreateVar(
         fst::Hierarchy::VarType::eVcdWire,
@@ -74,6 +75,7 @@ TEST_F(WriterTest, CreateVar) {
 
 TEST_F(WriterTest, CreateVarAlias) {
     Writer writer;
+    writer.SetWriterPackType(WriterPackType::eNoCompression);
     // Call CreateVar
     EXPECT_EQ(writer.CreateVar(
         fst::Hierarchy::VarType::eVcdWire,
@@ -103,6 +105,7 @@ TEST_F(WriterTest, CreateVarAlias) {
 
 TEST_F(WriterTest, CreateAliasOutOfRange) {
     Writer writer;
+    writer.SetWriterPackType(WriterPackType::eNoCompression);
     // Call CreateVar
     EXPECT_EQ(writer.CreateVar(
         fst::Hierarchy::VarType::eVcdWire,
@@ -122,6 +125,7 @@ TEST_F(WriterTest, CreateAliasOutOfRange) {
 
 TEST_F(WriterTest, Scope) {
     Writer writer;
+    writer.SetWriterPackType(WriterPackType::eNoCompression);
     // Set Scope
     writer.SetScope(
         fst::Hierarchy::ScopeType::eVcdModule,
@@ -139,6 +143,7 @@ TEST_F(WriterTest, Scope) {
 
 TEST_F(WriterTest, CreateEnumTable_NoEscape_Padding) {
     Writer writer;
+    writer.SetWriterPackType(WriterPackType::eNoCompression);
     // Call CreateEnumTable
     writer.CreateEnumTable(
         "E1 Hello World",
@@ -166,6 +171,7 @@ TEST_F(WriterTest, CreateEnumTable_NoEscape_Padding) {
 
 TEST_F(WriterTest, CreateEnumTable_Escape_NoPadding) {
     Writer writer;
+    writer.SetWriterPackType(WriterPackType::eNoCompression);
     writer.CreateEnumTable(
         "E2.hello.world", // test escape
         0, // test no padding
@@ -207,6 +213,7 @@ TEST_F(WriterTest, CreateEnumTable_Escape_NoPadding) {
 
 TEST_F(WriterTest, CreateEnumTableRef) {
     Writer writer;
+    writer.SetWriterPackType(WriterPackType::eNoCompression);
     writer.EmitEnumTableRef((0x12<<7) | 0x34);
     string buf = GetHierarchyBuffer(writer);
     string expected = (
@@ -222,6 +229,7 @@ TEST_F(WriterTest, CreateEnumTableRef) {
 
 TEST_F(WriterTest, CreateVarVcdReal) {
     Writer writer;
+    writer.SetWriterPackType(WriterPackType::eNoCompression);
     // Call CreateVar with eVcdReal
     EXPECT_EQ(writer.CreateVar(
         fst::Hierarchy::VarType::eVcdReal,
@@ -241,6 +249,7 @@ TEST_F(WriterTest, CreateVarVcdReal) {
 
 TEST_F(WriterTest, GeometryBufferNormalVar) {
     Writer writer;
+    writer.SetWriterPackType(WriterPackType::eNoCompression);
     EXPECT_EQ(writer.CreateVar(
         fst::Hierarchy::VarType::eVcdWire,
         fst::Hierarchy::VarDirection::eInput,
@@ -255,6 +264,7 @@ TEST_F(WriterTest, GeometryBufferNormalVar) {
 
 TEST_F(WriterTest, GeometryBufferRealVar) {
     Writer writer;
+    writer.SetWriterPackType(WriterPackType::eNoCompression);
     EXPECT_EQ(writer.CreateVar(
         fst::Hierarchy::VarType::eVcdReal,
         fst::Hierarchy::VarDirection::eInput,
@@ -269,6 +279,7 @@ TEST_F(WriterTest, GeometryBufferRealVar) {
 
 TEST_F(WriterTest, GeometryBufferZerobitwidthVar) {
     Writer writer;
+    writer.SetWriterPackType(WriterPackType::eNoCompression);
     EXPECT_EQ(writer.CreateVar(
         fst::Hierarchy::VarType::eVcdWire,
         fst::Hierarchy::VarDirection::eInput,
@@ -287,6 +298,7 @@ TEST_F(WriterTest, GeometryBufferZerobitwidthVar) {
 ////////////////////////////////////////////////
 TEST_F(WriterTest, WriteBlackout_Short) {
     Writer writer;
+    writer.SetWriterPackType(WriterPackType::eNoCompression);
     // 1. Blackout between 10 to 20
     writer.EmitTimeChange(10);
     writer.EmitDumpActive(false);

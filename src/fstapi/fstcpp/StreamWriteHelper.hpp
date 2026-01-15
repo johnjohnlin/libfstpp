@@ -2,7 +2,6 @@
 // direct include
 // C system headers
 // C++ standard library headers
-#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <iostream>

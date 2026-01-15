@@ -6,6 +6,11 @@
 // Other libraries' .h files.
 // Your project's .h files.
 
+// Remove these when we upgrade to C++20
+#pragma GCC diagnostic ignored "-Wpragmas"
+#pragma GCC diagnostic ignored "-Wc++17-attribute-extensions"
+#pragma GCC diagnostic ignored "-Wc++20-attribute-extensions"
+
 namespace fst {
 
 typedef uint32_t Handle;
@@ -16,8 +21,8 @@ enum WriterPackType : uint8_t {
 	eFastLz = 1, // not supported
 	eLz4 = 2,
 	// usually for testing, you should use eLz4
-	eLz4ForceOn = 3,
-	eLz4ForceOff = 4,
+	// This will turn off compression for geometry/hierarchy/wave data
+	eNoCompression = 3,
 };
 
 enum FileType : uint8_t {

@@ -53,7 +53,8 @@ struct ValueChangeData {
 	static uint64_t EncodePositionsAndWriteUniqueWaveData(
 		std::ostream &os,
 		const std::vector<std::vector<char>> &unique_data,
-		std::vector<int64_t> &positions
+		std::vector<int64_t> &positions,
+		WriterPackType pack_type
 	);
 	static void WriteEncodedPositions(
 		const std::vector<int64_t> &encoded_positions,
@@ -200,7 +201,7 @@ public:
 	}
 	// Flush value change data
 	inline void FlushValueChangeData() {
-		FlushValueChangeData_(value_change_data_, main_fst_file_);
+		FlushValueChangeData_(value_change_data_, main_fst_file_, pack_type_);
 		value_change_data_usage_ = 0;
 	}
 private:
@@ -216,7 +217,7 @@ private:
 	detail::BlackoutData blackout_data_;
 	detail::ValueChangeData value_change_data_;
 	bool hierarchy_finalized_ = false;
-	enum WriterPackType pack_type_ = WriterPackType::eLz4;
+	WriterPackType pack_type_ = WriterPackType::eLz4;
 	uint64_t value_change_data_usage_ = 0; // Note: this value is just an estimation
 	uint64_t value_change_data_flush_threshold_ = 128<<20; // 128MB
 	uint32_t enum_count_ = 0;
@@ -230,13 +231,15 @@ private:
 	// Just want to separate the const part from the non-const part for code clarity
 	static void FlushValueChangeDataConstPart_(
 		const detail::ValueChangeData &vcd,
-		std::ostream &os
+		std::ostream &os,
+		WriterPackType pack_type
 	);
 	static inline void FlushValueChangeData_(
 		detail::ValueChangeData &vcd,
-		std::ostream &os
+		std::ostream &os,
+		WriterPackType pack_type
 	) {
-		FlushValueChangeDataConstPart_(vcd, os);
+		FlushValueChangeDataConstPart_(vcd, os, pack_type);
 		vcd.KeepOnlyTheLatestValue();
 	}
 	void FinalizeHierarchy_() {
