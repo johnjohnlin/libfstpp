@@ -3,8 +3,8 @@
   "tasks": [
     {
       "label": "build",
-      "command": "make",
-      "args": ["-j", "16", "-C", "${workspaceFolder}/build"],
+      "command": "ninja",
+      "args": ["all", "-C", "${workspaceFolder}/build/debug"],
       "group": {
         "kind": "build",
         "isDefault": true

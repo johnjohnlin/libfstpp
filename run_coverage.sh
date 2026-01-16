@@ -23,7 +23,7 @@ done
 
 # Directory definitions
 WORKSPACE_ROOT=$(pwd)
-BUILD_DIR="${WORKSPACE_ROOT}/build/debug"
+BUILD_DIR="${WORKSPACE_ROOT}/build/coverage"
 SRC_DIR="${WORKSPACE_ROOT}/src"
 OUTPUT_DIR="${WORKSPACE_ROOT}/coverage_report"
 
