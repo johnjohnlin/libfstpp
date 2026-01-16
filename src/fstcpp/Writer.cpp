@@ -770,7 +770,8 @@ void CompressUsingLz4(
 template<typename BufferLike1, typename BufferLike2>
 void CompressUsingZlib(
 	const BufferLike1& uncompressed_data,
-	BufferLike2& compressed_data
+	BufferLike2& compressed_data,
+	int level
 ) {
 	// compress using zlib
 	const uLong uncompressed_size = uncompressed_data.size();
@@ -781,7 +782,7 @@ void CompressUsingZlib(
 		&compressed_bound,
 		reinterpret_cast<const Bytef*>(uncompressed_data.data()),
 		uncompressed_size,
-		Z_BEST_COMPRESSION
+		level
 	);
 	if (z_status != Z_OK) {
 		throw runtime_error("Failed to compress data with zlib, error code: " + to_string(z_status));
@@ -813,7 +814,7 @@ void Writer::AppendGeometry_(ostream& os) {
 		return;
 	}
 	vector<char> geometry_compressed_data;
-	CompressUsingZlib(geometry_uncompressed_data, geometry_compressed_data);
+	CompressUsingZlib(geometry_uncompressed_data, geometry_compressed_data, 9);
 	// TODO: Replace with structured binding in C++17
 	const auto selected_pair = SelectSmaller(geometry_compressed_data, geometry_uncompressed_data);
 	const auto selected_data = selected_pair.first;
@@ -1076,40 +1077,43 @@ void Writer::FlushValueChangeDataConstPart_(
 	const auto memory_usage_pos = p_tmp1.second;
 
 	// 2. Bits Section
-	// Generate, Compress, Write
 	{
-		// Implement uncompressed for now
-		// From document:
-		// Compressed length (equal to the uncompressed length if no compression).
 		stringstream ss;
 		vcd.WriteInitialBits(ss);
 		string raw = ss.str();
+		vector<char> compressed_data;
+		const char* selected_data;
+		size_t selected_size;
+		if (pack_type == WriterPackType::eNoCompression) {
+			selected_data = raw.data();
+			selected_size = raw.size();
+		} else {
+			CompressUsingZlib(raw, compressed_data, 4);
+			const auto selected_pair = SelectSmaller(compressed_data, raw);
+			selected_data = selected_pair.first;
+			selected_size = selected_pair.second;
+		}
 
 		h
 		.WriteLEB128(raw.size()) // uncompressed length
-		.WriteLEB128(raw.size()) // compressed length
+		.WriteLEB128(selected_size) // compressed length
 		.WriteLEB128(vcd.variable_infos.size()) // bits count
-		.Write(raw.data(), raw.size());
+		.Write(selected_data, selected_size);
 	}
 
 	// 3. Waves Section
-	// Generate (Compute/Uniquify/Encode), Write
 	// Note: We need positions for the next section
 	const auto p_tmp2 = [&,pack_type]() {
 		auto wave_data = vcd.ComputeWaveData();
 		auto positions = vcd.UniquifyWaveData(wave_data);
 		const size_t memory_usage = accumulate(
 			wave_data.begin(), wave_data.end(), size_t(0),
-			[](size_t a, const auto& b) { return a + b.size();
-		});
+			[](size_t a, const auto& b) { return a + b.size(); }
+		);
 		stringstream ss;
 		const uint64_t count = detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(ss, wave_data, positions, pack_type);
 		(void)count;
-		string raw = ss.str();
-		// NOTE: While we write '4' for LZ4, we write uncompressed data.
-		// For each wavedata, if it's `uncompressed_length == 0`,
-		// then it is uncompressed, which effectively disables compression.
-		// This is what we do for now.
+		const string raw = ss.str();
 		h
 		// Note: this is not a typo, I expect we shall write count here.
 		// but the spec indeed write vcd.variable_infos.size(),
@@ -1123,7 +1127,6 @@ void Writer::FlushValueChangeDataConstPart_(
 	const auto memory_usage = p_tmp2.second;
 
 	// 4. Position Section
-	// Encode, Write
 	{
 		const auto pos_begin = os.tellp();
 		vcd.WriteEncodedPositions(positions, os);
@@ -1132,17 +1135,26 @@ void Writer::FlushValueChangeDataConstPart_(
 	}
 
 	// 5. Time Section
-	// Write, Compress, Write
 	{
-		// Implement uncompressed for now
-		// From document:
-		// Compressed length (equal to the uncompressed length if no compression).
-		const auto time_begin = os.tellp();
-		vcd.WriteTimestamps(os);
-		const uint64_t time_size = os.tellp() - time_begin;
+		stringstream ss;
+		vcd.WriteTimestamps(ss);
+		const string raw = ss.str();
+		vector<char> compressed_data;
+		const char* selected_data;
+		size_t selected_size;
+		if (pack_type == WriterPackType::eNoCompression) {
+			selected_data = raw.data();
+			selected_size = raw.size();
+		} else {
+			CompressUsingZlib(raw, compressed_data, 9);
+			const auto selected_pair = SelectSmaller(compressed_data, raw);
+			selected_data = selected_pair.first;
+			selected_size = selected_pair.second;
+		}
 		h
-		.WriteUInt(time_size) // uncompressed len
-		.WriteUInt(time_size) // compressed len
+		.Write(selected_data, selected_size) // time data
+		.WriteUInt(raw.size()) // uncompressed len
+		.WriteUInt(selected_size) // compressed len
 		.WriteUInt(uint64_t(vcd.timestamps.size())); // count
 	}
 
@@ -1154,9 +1166,8 @@ void Writer::FlushValueChangeDataConstPart_(
 	.Seek(start_pos + streamoff(1), ios_base::beg)
 	.WriteUInt<uint64_t>(end_pos - start_pos - 1)
 	// Patch Memory Required
-	// TODO: *1.5 since we are not sure whether we compute memory usage correctly
 	.Seek(memory_usage_pos, ios_base::beg)
-	.WriteUInt<uint64_t>(memory_usage*3/2)
+	.WriteUInt<uint64_t>(memory_usage)
 	// Restore position to end
 	.Seek(end_pos, ios_base::beg);
 }

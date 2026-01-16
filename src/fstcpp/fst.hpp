@@ -188,7 +188,7 @@ struct Header {
 	uint64_t start_time = uint64_t(-1);
 	uint64_t end_time = 0;
 	int64_t timezero = 0;
-	uint64_t writer_memory_use = 0;
+	uint64_t writer_memory_use = 1ull << 27; // Match the original fstapi.c. Just for information, not used in FST.
 	uint64_t num_scopes = 0;
 	uint64_t num_vars = 0; // #CreateVar calls, including aliases
 	uint64_t num_handles = 0; // #unique handles, excluding aliases, shall be <= num_vars

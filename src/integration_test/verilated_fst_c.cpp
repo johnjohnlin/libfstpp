@@ -77,6 +77,8 @@ void VerilatedFst::open(const char* filename) VL_MT_SAFE_EXCLUDES(m_mutex) {
     m_fst = fstWriterCreate(filename, 1);
     fstWriterSetPackType(m_fst, FST_WR_PT_LZ4);
     fstWriterSetTimescaleFromString(m_fst, timeResStr().c_str());  // lintok-begin-on-ref
+    fstWriterSetDate(m_fst, "Sat Jan 01 01:23:45 2000\x0a");
+    fstWriterSetVersion(m_fst, "Verilator");
     if (m_useFstWriterThread) fstWriterSetParallelMode(m_fst, 1);
     constDump(true);  // First dump must contain the const signals
     fullDump(true);  // First dump must be full for fst
