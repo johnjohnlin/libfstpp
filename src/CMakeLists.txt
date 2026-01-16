@@ -103,5 +103,5 @@ foreach(flong ${BENCHMARK_NAME_LIST})
 endforeach()
 
 # copy file for bench2 running data
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/list/bench2/firmware
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/list/picorv32/firmware
      DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
