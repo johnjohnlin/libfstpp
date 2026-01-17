@@ -280,7 +280,7 @@ void fstWriterEmitValueChange32(
 ) {
 	(void)bits;
 	if (not ctx) return;
-	ctx->writer.EmitValueChange(handle, &val);
+	ctx->writer.EmitValueChange(handle, (uint64_t)val);
 }
 
 void fstWriterEmitValueChange64(
@@ -291,7 +291,7 @@ void fstWriterEmitValueChange64(
 ) {
 	(void)bits;
 	if (not ctx) return;
-	ctx->writer.EmitValueChange(handle, &val);
+	ctx->writer.EmitValueChange(handle, val);
 }
 
 void fstWriterEmitValueChangeVec32(

@@ -22,6 +22,7 @@
 namespace fst {
 
 class Writer;
+struct VariableInfoBase;
 
 namespace detail {
 
@@ -41,7 +42,6 @@ struct BlackoutData {
 
 // We define ValueChangeData here for better code inlining, no forward declaration
 struct ValueChangeData {
-	struct VariableInfoBase;
 	std::vector<std::unique_ptr<VariableInfoBase>> variable_infos;
 	std::vector<uint64_t> timestamps;
 
@@ -130,8 +130,10 @@ public:
 		SetAttrBegin(Hierarchy::AttrType::eMisc, Hierarchy::AttrSubType::eMisc_EnumTable, string_view_{}, handle);
 	}
 	inline void SetWriterPackType(WriterPackType pack_type) {
-		CHECK_NE(pack_type_, WriterPackType::eZlib);
-		CHECK_NE(pack_type_, WriterPackType::eFastLz);
+		CHECK(
+			pack_type != WriterPackType::eZlib and
+			pack_type != WriterPackType::eFastLz
+		);
 		pack_type_ = pack_type;
 	}
 
@@ -204,8 +206,7 @@ public:
 	}
 	// Flush value change data
 	inline void FlushValueChangeData() {
-		FlushValueChangeData_(value_change_data_, main_fst_file_, pack_type_);
-		value_change_data_usage_ = 0;
+		FlushValueChangeData_(value_change_data_, main_fst_file_);
 	}
 private:
 	// File/memory buffers
@@ -237,21 +238,20 @@ private:
 		std::ostream &os,
 		WriterPackType pack_type
 	);
-	static inline void FlushValueChangeData_(
+	inline void FlushValueChangeData_(
 		detail::ValueChangeData &vcd,
-		std::ostream &os,
-		WriterPackType pack_type
+		std::ostream &os
 	) {
-		FlushValueChangeDataConstPart_(vcd, os, pack_type);
+		FlushValueChangeDataConstPart_(vcd, os, pack_type_);
 		vcd.KeepOnlyTheLatestValue();
+		value_change_data_usage_ = 0;
 	}
 	void FinalizeHierarchy_() {
+		if (hierarchy_finalized_) return;
 		hierarchy_finalized_ = true;
 		// Original FST code comments: as a default, use 128MB and increment when
 		// every 1M signals are defined.
-		if (header_.num_handles != 0) {
-			value_change_data_flush_threshold_ = (((header_.num_handles-1) >> 20) + 1) << 27;
-		}
+		value_change_data_flush_threshold_ = (((header_.num_handles-1) >> 20) + 1) << 27;
 	}
 	template <typename... T>
 	void EmitValueChangeHelper_(Handle handle, T&&... val);
