@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2025 Yu-Sheng Lin <johnjohnlys@gmail.com>
+// SPDX-License-Identifier: MIT
 #pragma once
 // direct include
 // C system headers

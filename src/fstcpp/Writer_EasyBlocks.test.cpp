@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025-2026 Yu-Sheng Lin <johnjohnlys@gmail.com>
+// SPDX-FileCopyrightText: 2025-2026 Yoda Lee <lc85301@gmail.com>
+// SPDX-License-Identifier: MIT
 // direct include
 #include "fstcpp/Writer.hpp"
 // C system headers

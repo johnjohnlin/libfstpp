@@ -22,3 +22,22 @@ jobs:
 
       - name: Run tests
         run: ./run_regression.sh --coverage
+
+      - name: Comment Link on Commit
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+          if [ "${{ job.status }}" == "success" ]; then
+            ICON="✅"
+          else
+            ICON="❌"
+          fi
+
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments \
+            -f body="$ICON **Regression Report:** [Click Here to View Summary]($URL)"

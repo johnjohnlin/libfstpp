@@ -1,7 +1,15 @@
+// SPDX-FileCopyrightText: 2025-2026 Yu-Sheng Lin <johnjohnlys@gmail.com>
+// SPDX-FileCopyrightText: 2025-2026 Yoda Lee <lc85301@gmail.com>
+// SPDX-License-Identifier: MIT
+// direct include
+#include "VSimple.h" // Generated header for the Testbench module
+// C system headers
+// C++ standard library headers
 #include <iostream>
+// Other libraries' .h files.
 #include <verilated.h>
 #include <verilated_fst_c.h> // For FST waveform tracing
-#include "VSimple.h" // Generated header for the Testbench module
+// Your project's .h files.
 
 using namespace std;
 
