@@ -9,15 +9,16 @@ find_package(GTest REQUIRED)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Generate compile_commands.json
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Coverage
 option(ENABLE_COVERAGE "Enable coverage reporting" OFF)
 if(ENABLE_COVERAGE)
-    add_compile_options(--coverage -O0 -g)
+    set(CMAKE_BUILD_TYPE Debug)
+    add_compile_options(--coverage)
     add_link_options(--coverage)
 endif()
-
-# Generate compile_commands.json
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-Wall -Wextra -Wpedantic -Wno-sign-compare)
@@ -86,3 +87,14 @@ target_link_libraries(integration_test_cpp PRIVATE fstcpp)
 
 add_test(NAME integration_test_cpp COMMAND integration_test_cpp dump_cpp.fst)
 add_test(NAME integration_test_c COMMAND integration_test_c dump_c.fst)
+
+# must be bit-true
+add_test(
+    NAME compare_fst_files
+    COMMAND cmake -E compare_files dump_cpp.fst dump_c.fst
+)
+set_tests_properties(
+    compare_fst_files
+    PROPERTIES
+    DEPENDS "integration_test_cpp;integration_test_c"
+)

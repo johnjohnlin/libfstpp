@@ -1,5 +1,9 @@
 # High-Performance FST Waveform Writer
 
+![CI Status](https://github.com/<OWNER>/<REPO>/actions/workflows/on_pull_request.yml/badge.svg)
+![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/<USER>/<GIST_ID>/raw/coverage.json)
+
+
 A modern C++14 re-implementation of the **Fast Signal Trace (FST)** waveform writer, originally designed for [GtkWave](http://gtkwave.sourceforge.net/).
 
 ## 🚀 Overview
