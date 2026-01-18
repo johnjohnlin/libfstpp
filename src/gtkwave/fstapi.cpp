@@ -10,8 +10,8 @@
 #include <cstdlib>
 // Other libraries' .h files.
 // Your project's .h files.
-#include "fstcpp/Writer.hpp"
-#include "fstcpp/fst_string_view.hpp"
+#include "fstcpp/Writer.h"
+#include "fstcpp/fst_string_view.h"
 
 using namespace std;
 

@@ -8,10 +8,11 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <vector>
 // Other libraries' .h files.
 // Your project's .h files.
-#include "fstcpp/fst_file.hpp"
-#include "fstcpp/string_view.hpp"
+#include "fstcpp/fst_file.h"
+#include "fstcpp/string_view.h"
 
 namespace fst {
 
@@ -199,6 +200,65 @@ struct StreamWriteHelper {
 	StreamWriteHelper& EndOffset(std::streamoff* diff, std::streamoff pos) {
 		*diff = os->tellp() - pos;
 		return *this;
+	}
+};
+
+struct StreamVectorWriteHelper {
+	std::vector<uint8_t>& vec;
+
+	StreamVectorWriteHelper(std::vector<uint8_t>& vec_) : vec(vec_) {}
+
+	template<typename T>
+	StreamVectorWriteHelper& WriteUInt(T u) {
+		const size_t s = sizeof(u);
+		vec.resize(vec.size() + s);
+		std::memcpy(vec.data() + vec.size() - s, &u, s);
+		return *this;
+	}
+
+	template<typename T>
+	StreamVectorWriteHelper& WriteUInts(T u, size_t count) {
+		const size_t s = sizeof(u) * count;
+		vec.resize(vec.size() + s);
+		for (size_t i = 0; i < count; ++i) {
+			std::memcpy(vec.data() + vec.size() - s + i * sizeof(u), &u, sizeof(u));
+		}
+		return *this;
+	}
+
+	template<typename T>
+	StreamVectorWriteHelper& WriteUInts(T* u, size_t size) {
+		const size_t s = sizeof(u) * size;
+		vec.resize(vec.size() + s);
+		std::memcpy(vec.data() + vec.size() - s, u, s);
+		return *this;
+	}
+
+};
+
+struct StreamVectorReaderHelper {
+	const uint8_t* ptr;
+	StreamVectorReaderHelper(const uint8_t* ptr_) : ptr(ptr_) {}
+
+	template<typename T>
+	T ReadUInt() {
+		const size_t s = sizeof(T);
+		T u;
+		std::memcpy(&u, ptr, s);
+		ptr += s;
+		return u;
+	}
+
+	void Skip(size_t count) {
+		ptr += count;
+	}
+
+	template<typename T>
+	T PeekUInt(size_t i = 0) {
+		const size_t s = sizeof(T);
+		T u;
+		std::memcpy(&u, ptr + i * s, s);
+		return u;
 	}
 };
 
