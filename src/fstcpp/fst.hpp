@@ -19,7 +19,7 @@ namespace fst {
 typedef uint32_t Handle;
 typedef uint32_t EnumHandle;
 
-enum WriterPackType : uint8_t {
+enum class WriterPackType : uint8_t {
 	eZlib = 0, // not supported
 	eFastLz = 1, // not supported
 	eLz4 = 2,
@@ -28,7 +28,7 @@ enum WriterPackType : uint8_t {
 	eNoCompression = 3,
 };
 
-enum FileType : uint8_t {
+enum class FileType : uint8_t {
 	eVerilog = 0,
 	eVhdl,
 	eVerilogVhdl,
@@ -201,5 +201,7 @@ struct Header {
 	FileType filetype = FileType::eVerilog;
 	int8_t timescale = -9;
 };
+
+static constexpr uint64_t kInvalidTime = uint64_t(-1);
 
 } // namespace fst

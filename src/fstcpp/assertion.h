@@ -51,10 +51,12 @@
 #if 1
 #  define DCHECK(a) CHECK(a)
 #  define DCHECK_EQ(a, b) CHECK_EQ(a, b)
+#  define DCHECK_NE(a, b) CHECK_NE(a, b)
 #  define DCHECK_GT(a, b) CHECK_GT(a, b)
 #else
 #  define DCHECK(a)
 #  define DCHECK_EQ(a, b)
+#  define DCHECK_NE(a, b)
 #  define DCHECK_GT(a, b)
 #endif
 
