@@ -36,6 +36,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 # Collect cpp files (recursively) and split regular library sources vs tests (files ending with ".test.cpp")
 file(GLOB_RECURSE FST_CPP_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/fstcpp/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/gtkwave/*.cpp"
 )
 
 # Lists to populate
