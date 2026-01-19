@@ -16,33 +16,11 @@ namespace fst {
 
 constexpr unsigned kDontCareBitWidth = 1234;
 
-TEST(VariableInfoTest, Create) {
-    // int
-    unique_ptr<VariableInfoBase> vi_int(VariableInfoBase::Create(8, false));
-    EXPECT_NE(vi_int, nullptr);
-    // Should be VariableInfoScalarInt<uint8_t>
-    auto* vi_int_cast = dynamic_cast<VariableInfoScalarInt<uint8_t>*>(vi_int.get());
-    EXPECT_NE(vi_int_cast, nullptr);
-
-    // long
-    unique_ptr<VariableInfoBase> vi_long(VariableInfoBase::Create(128, false));
-    EXPECT_NE(vi_long, nullptr);
-    // Should be VariableInfoLongInt
-    auto* vi_long_cast = dynamic_cast<VariableInfoLongInt*>(vi_long.get());
-    EXPECT_NE(vi_long_cast, nullptr);
-
-    // double
-    unique_ptr<VariableInfoBase> vi_double(VariableInfoBase::Create(kDontCareBitWidth, true));
-    EXPECT_NE(vi_double, nullptr);
-    // Should be VariableInfoDouble
-    auto* vi_double_cast = dynamic_cast<VariableInfoDouble*>(vi_double.get());
-    EXPECT_NE(vi_double_cast, nullptr);
-}
 /////////////////////////////
 // WriteInitialBits
 /////////////////////////////
 TEST(VariableInfoTest, WriteInitialBits_ScalarInt) {
-    VariableInfoScalarInt<uint8_t> vi(4);
+    VariableInfo vi(4);
     vi.EmitValueChange(0, 0b1010);
     vi.KeepOnlyTheLatestValue();
     ostringstream os;
@@ -51,7 +29,7 @@ TEST(VariableInfoTest, WriteInitialBits_ScalarInt) {
 }
 
 TEST(VariableInfoTest, WriteInitialBits_LongInt) {
-    VariableInfoLongInt vi(70);
+    VariableInfo vi(70);
     vi.EmitValueChange(0, (1ULL << 63) | 1);
     vi.KeepOnlyTheLatestValue();
     ostringstream os;
@@ -62,7 +40,7 @@ TEST(VariableInfoTest, WriteInitialBits_LongInt) {
 }
 
 TEST(VariableInfoTest, WriteInitialBits_Double) {
-    VariableInfoDouble vi;
+    VariableInfo vi(kDontCareBitWidth, true);
     vi.EmitValueChange(0, 0x3ff0000000000000ULL); // 1.0 in IEEE754
     vi.KeepOnlyTheLatestValue();
     ostringstream os;
@@ -76,7 +54,7 @@ TEST(VariableInfoTest, WriteInitialBits_Double) {
 // DumpValueChanges
 /////////////////////////////
 TEST(VariableInfoTest, DumpValueChange_ScalarInt_1bit_Binary) {
-    VariableInfoScalarInt<uint8_t> vi(1);
+    VariableInfo vi(1);
     vi.EmitValueChange(1, 0);
     vi.EmitValueChange(2, 1);
     vi.EmitValueChange(3, 0);
@@ -90,7 +68,7 @@ TEST(VariableInfoTest, DumpValueChange_ScalarInt_1bit_Binary) {
 }
 
 TEST(VariableInfoTest, DumpValueChange_ScalarInt_2bit_Binary) {
-    VariableInfoScalarInt<uint8_t> vi(2);
+    VariableInfo vi(2);
     vi.EmitValueChange(1, 0);
     vi.EmitValueChange(3, 1);
     vi.EmitValueChange(5, 2);
@@ -104,7 +82,7 @@ TEST(VariableInfoTest, DumpValueChange_ScalarInt_2bit_Binary) {
 }
 
 TEST(VariableInfoTest, DumpValueChange_ScalarInt_10bit_Binary) {
-    VariableInfoScalarInt<uint16_t> vi(10);
+    VariableInfo vi(10);
     vi.EmitValueChange(1, 0);
     vi.EmitValueChange(3, 1);
     vi.EmitValueChange(5, 2);
@@ -122,7 +100,7 @@ TEST(VariableInfoTest, DumpValueChange_ScalarInt_10bit_Binary) {
 }
 
 TEST(VariableInfoTest, DumpValueChange_LongInt_Binary) {
-    VariableInfoLongInt vi(68);
+    VariableInfo vi(68);
     vi.EmitValueChange(2, 0);
     vi.EmitValueChange(5, 0x1234567890abcdefULL);
     ostringstream os;
@@ -133,7 +111,7 @@ TEST(VariableInfoTest, DumpValueChange_LongInt_Binary) {
 
 // LCOV_EXCL_START
 TEST(VariableInfoTest, DISABLED_DumpValueChange_Double_Binary) {
-    VariableInfoDouble vi;
+    VariableInfo vi(kDontCareBitWidth, true);
     vi.EmitValueChange(0, 0x3ff0000000000000ULL); // 1.0 in IEEE754
     ostringstream os;
     vi.DumpValueChanges(os);

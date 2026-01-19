@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025-2026 Yoda Lee <lc85301@gmail.com>
 // SPDX-License-Identifier: MIT
 // direct include
-#include "fstcpp/Writer.hpp"
+#include "fstcpp/Writer.h"
 // C system headers
 // C++ standard library headers
 #include <iostream>
@@ -19,11 +19,11 @@
 #include <lz4.h>
 #include <zlib.h>
 // Your project's .h files.
-#include "fstcpp/StreamWriteHelper.hpp"
+#include "fstcpp/StreamWriteHelper.h"
 #include "fstcpp/VariableInfo.h"
 #include "fstcpp/assertion.h"
-#include "fstcpp/fst.hpp"
-#include "fstcpp/fst_string_view.hpp"
+#include "fstcpp/fst.h"
+#include "fstcpp/fst_string_view.h"
 
 using namespace std;
 
@@ -56,7 +56,7 @@ ValueChangeData::~ValueChangeData() = default;
 
 void ValueChangeData::KeepOnlyTheLatestValue() {
 	for (auto& v : variable_infos) {
-		v->KeepOnlyTheLatestValue();
+		v.KeepOnlyTheLatestValue();
 	}
 	timestamps.resize(0);
 }
@@ -170,9 +170,7 @@ Handle Writer::CreateVar(
 			                bitwidth
 		);
 		g.WriteLEB128(geom_len);
-		value_change_data_.variable_infos.emplace_back(
-			VariableInfoBase::Create(bitwidth, is_real)
-		);
+		value_change_data_.variable_infos.emplace_back(bitwidth, is_real);
 	}
 
 	return alias_handle;
@@ -218,7 +216,7 @@ void Writer::EmitDumpActive(bool enable) {
 
 template<typename T, typename ...U>
 uint64_t EmitValueHelperStaticDispatch_(
-	VariableInfoBase* var_info,
+	VariableInfo* var_info,
 	const uint64_t time_index,
 	U&&... val
 ) {
@@ -227,40 +225,14 @@ uint64_t EmitValueHelperStaticDispatch_(
 
 template<typename... T>
 void Writer::EmitValueChangeHelper_(Handle handle, T&&... val) {
+	// Let data prefetch go first
+	auto& var_info = value_change_data_.variable_infos AT(handle - 1);
+	__builtin_prefetch(var_info.data.data() + var_info.data.size() - 1, 1, 0);
+
 	FinalizeHierarchy_();
-	auto var_info = value_change_data_.variable_infos AT(handle - 1) .get();
 
 	// Original implementation: virtual, but vtable is too costly, we switch to if-else static dispatch
-	// value_change_data_usage_ += var_info->EmitValueChange(value_change_data_.timestamps.size() - 1, std::forward<T>(val)...);
-
-	const unsigned bitwidth = var_info->bitwidth;
-	const bool is_real = var_info->is_real;
-	const auto time_index = value_change_data_.timestamps.size() - 1;
-	if (is_real) {
-		value_change_data_usage_ += EmitValueHelperStaticDispatch_<
-			VariableInfoDouble
-		>(var_info, time_index, std::forward<T>(val)...);
-	} else if (bitwidth <= 8) {
-		value_change_data_usage_ += EmitValueHelperStaticDispatch_<
-			VariableInfoScalarInt<uint8_t>
-		>(var_info, time_index, std::forward<T>(val)...);
-	} else if (bitwidth <= 16) {
-		value_change_data_usage_ += EmitValueHelperStaticDispatch_<
-			VariableInfoScalarInt<uint16_t>
-		>(var_info, time_index, std::forward<T>(val)...);
-	} else if (bitwidth <= 32) {
-		value_change_data_usage_ += EmitValueHelperStaticDispatch_<
-			VariableInfoScalarInt<uint32_t>
-		>(var_info, time_index, std::forward<T>(val)...);
-	} else if (bitwidth <= 64) {
-		value_change_data_usage_ += EmitValueHelperStaticDispatch_<
-			VariableInfoScalarInt<uint64_t>
-		>(var_info, time_index, std::forward<T>(val)...);
-	} else {
-		value_change_data_usage_ += EmitValueHelperStaticDispatch_<
-			VariableInfoLongInt
-		>(var_info, time_index, std::forward<T>(val)...);
-	}
+	value_change_data_usage_ += var_info.EmitValueChange(value_change_data_.timestamps.size() - 1, std::forward<T>(val)...);
 }
 
 void Writer::EmitValueChange(Handle handle, const uint32_t *val, EncodingType encoding) {
@@ -278,7 +250,7 @@ void Writer::EmitValueChange(Handle handle, uint64_t val) {
 void Writer::EmitValueChange(Handle handle, const char *val) {
 	FinalizeHierarchy_();
 	auto &var_info = value_change_data_.variable_infos AT(handle - 1);
-	const uint32_t bitwidth = var_info->bitwidth;
+	const uint32_t bitwidth = var_info.bitwidth;
 	CHECK_NE(bitwidth, 0);
 
 	val += bitwidth;
@@ -482,7 +454,7 @@ void detail::ValueChangeData::WriteInitialBits(ostream& os) const {
 	// We will not compress for now; just generate the raw bytes and print summary to stdout.
 	for (size_t i = 0; i < variable_infos.size(); ++i) {
 		auto &vref = variable_infos[i];
-		vref->DumpInitialBits(os);
+		vref.DumpInitialBits(os);
 	}
 }
 
@@ -490,7 +462,7 @@ vector<vector<char>> detail::ValueChangeData::ComputeWaveData() const {
 	stringstream ss;
 	vector<vector<char>> data;
 	for (auto& v : variable_infos) {
-		v->DumpValueChanges(ss);
+		v.DumpValueChanges(ss);
 		const string& s = ss.str();
 		data.emplace_back(s.begin(), s.end());
 		ss.str("");
@@ -560,7 +532,7 @@ uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
 			// try to compress
 			const char* selected_data;
 			size_t selected_size;
-			if (pack_type == WriterPackType::eNoCompression) {
+			if (pack_type == WriterPackType::eNoCompression or data[i].size() < 32) {
 				selected_data = data[i].data();
 				selected_size = data[i].size();
 			} else {
@@ -655,7 +627,7 @@ void Writer::FlushValueChangeDataConstPart_(
 	StreamWriteHelper h(os);
 
 	// 1. Write Block Header & Global Fields (start/end/mem_req placeholder)
-	// FST_BL_VCDATA_DYN_ALIAS2 (8) maps to WaveDataVersion3 in fst_file.hpp
+	// FST_BL_VCDATA_DYN_ALIAS2 (8) maps to WaveDataVersion3 in fst_file.h
 	// The positions we cannot fill in yet
 	const auto p_tmp1 = [&]() {
 		streamoff start_pos, memory_usage_pos;

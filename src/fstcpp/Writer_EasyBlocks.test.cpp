@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025-2026 Yoda Lee <lc85301@gmail.com>
 // SPDX-License-Identifier: MIT
 // direct include
-#include "fstcpp/Writer.hpp"
+#include "fstcpp/Writer.h"
 // C system headers
 // C++ standard library headers
 #include <algorithm>
@@ -13,8 +13,8 @@
 // Other libraries' .h files.
 #include <gtest/gtest.h>
 // Your project's .h files.
-#include "fstcpp/StreamWriteHelper.hpp"
-#include "fstcpp/fst_file.hpp"
+#include "fstcpp/StreamWriteHelper.h"
+#include "fstcpp/fst_file.h"
 
 using namespace std;
 

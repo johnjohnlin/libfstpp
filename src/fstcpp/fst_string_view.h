@@ -4,7 +4,7 @@
 #pragma once
 // Force to use nonstd::string_view
 #define nssv_CONFIG_SELECT_STRING_VIEW nssv_STRING_VIEW_NONSTD
-#include "fstcpp/string_view.hpp"
+#include "fstcpp/string_view.h"
 
 namespace fst {
 

@@ -3,26 +3,25 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 // direct include
-#include "fstcpp/fst.hpp"
+#include "fstcpp/fst.h"
 // C system headers
 // C++ standard library headers
 #include <algorithm>
 #include <cstdint>
 #include <ctime>
 #include <fstream>
-#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
 // Other libraries' .h files.
 // Your project's .h files.
 #include "fstcpp/assertion.h"
-#include "fstcpp/fst_string_view.hpp"
+#include "fstcpp/fst_string_view.h"
+#include "fstcpp/VariableInfo.h"
 
 namespace fst {
 
 class Writer;
-struct VariableInfoBase;
 
 namespace detail {
 
@@ -42,7 +41,7 @@ struct BlackoutData {
 
 // We define ValueChangeData here for better code inlining, no forward declaration
 struct ValueChangeData {
-	std::vector<std::unique_ptr<VariableInfoBase>> variable_infos;
+	std::vector<VariableInfo> variable_infos;
 	std::vector<uint64_t> timestamps;
 
 	ValueChangeData();
