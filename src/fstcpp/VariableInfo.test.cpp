@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 // direct include
 #include "fstcpp/Writer.cpp"
+#include "fstcpp/fst.h"
 // C system headers
 // C++ standard library headers
 #include <cstring>
@@ -50,6 +51,24 @@ TEST(VariableInfoTest, WriteInitialBits_Double) {
     memcpy(&val, s.data(), sizeof(double));
     EXPECT_DOUBLE_EQ(val, 1.0);
 }
+
+/////////////////////////////
+// EmitValueChange
+/////////////////////////////
+TEST(VariableInfoTest, EmitValueChange_Double_Array32) {
+    VariableInfo vi(32, true); // 32 bits, double type
+    uint64_t dummy_buf = 0x3ff00000ULL;
+    EXPECT_THROW(
+        vi.EmitValueChange(0, reinterpret_cast<uint32_t *>(&dummy_buf), EncodingType::eBinary), std::runtime_error);
+}
+
+TEST(VariableInfoTest, EmitValueChange_Double_Array64) {
+    VariableInfo vi(64, true); // 64 bits, double type
+    uint64_t dummy_buf = 0x3ff0000000000000ULL;
+    EXPECT_THROW(
+        vi.EmitValueChange(0, reinterpret_cast<uint64_t *>(&dummy_buf), EncodingType::eBinary), std::runtime_error);
+}
+
 /////////////////////////////
 // DumpValueChanges
 /////////////////////////////
