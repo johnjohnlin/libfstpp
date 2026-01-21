@@ -24,7 +24,7 @@ jobs:
         run: ./run_regression.sh --coverage
 
       - name: Comment Link on Commit
-        if: always()
+        if: false
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

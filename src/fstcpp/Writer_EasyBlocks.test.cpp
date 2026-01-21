@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
-#include <sstream>
 // Other libraries' .h files.
 #include <gtest/gtest.h>
 // Your project's .h files.
@@ -30,11 +29,11 @@ protected:
     // We call writer API and get the buffer content
     // without inspecting the internal state of writer
     static const string GetHierarchyBuffer(Writer& writer) {
-        return writer.hierarchy_buffer_.str();
+        return string(reinterpret_cast<char*>(writer.hierarchy_buffer_.data()), writer.hierarchy_buffer_.size());
     }
 
     static const string GetGeometryBuffer(Writer& writer) {
-        return writer.geometry_buffer_.str();
+        return string(reinterpret_cast<char*>(writer.geometry_buffer_.data()), writer.geometry_buffer_.size());
     }
 
     static void WriteHeader(const Header &h, ostream &os) {
@@ -359,42 +358,41 @@ TEST_F(WriterTest, WriteHeader) {
     WriteHeader(h_struct, os);
 
     // 3. Generate Golden Reference
-    ostringstream expected_os;
-    StreamWriteHelper h(expected_os);
+    std::vector<uint8_t> expected_vec;
+    StreamVectorWriteHelper h(expected_vec);
 
     // Helper to pad strings with nulls
     auto write_padded = [&](const string &s, size_t len) {
-        vector<char> buf(len, 0);
-        if (not s.empty()) {
-            memcpy(buf.data(), s.data(), min(s.size(), len));
-        }
-        h.Write(buf.data(), len);
+        size_t n = min(s.size(), len);
+        if (n > 0) h.WriteString(nonstd::string_view(s.data(), n));
+        if (len > n) h.Fill<char>(0, len - n);
     };
 
     h
     .WriteBlockHeader(BlockType::Header, HeaderInfo::total_size)
-    .WriteUInt(uint64_t(10))   // start_time
-    .WriteUInt(uint64_t(1000)) // end_time
-    .WriteFloat(HeaderInfo::kEndianessMagicIdentifier)
-    .WriteUInt(uint64_t(4096)) // writer_memory_use
-    .WriteUInt(uint64_t(5))    // num_scopes
-    .WriteUInt(uint64_t(42))   // num_vars
-    .WriteUInt(uint64_t(100))  // num_handles
-    .WriteUInt(uint64_t(3))    // num_value_change_data_blocks
-    .WriteUInt(int8_t(-9));    // timescale
+    .WriteUIntBE(uint64_t(10))   // start_time
+    .WriteUIntBE(uint64_t(1000)) // end_time
+    .Write(HeaderInfo::kEndianessMagicIdentifier)
+    .WriteUIntBE(uint64_t(4096)) // writer_memory_use
+    .WriteUIntBE(uint64_t(5))    // num_scopes
+    .WriteUIntBE(uint64_t(42))   // num_vars
+    .WriteUIntBE(uint64_t(100))  // num_handles
+    .WriteUIntBE(uint64_t(3))    // num_value_change_data_blocks
+    .WriteUIntBE(int8_t(-9));    // timescale
 
     write_padded(writer_name, sizeof(h_struct.writer));
     write_padded(date_str, sizeof(h_struct.date));
 
     h
-    .Fill('\0', HeaderInfo::Size::reserved)
-    .WriteUInt(static_cast<uint8_t>(FileType::eVerilog)) // filetype (default)
-    .WriteUInt(int64_t(123456789));                      // timezero
+    .Fill<char>(0, HeaderInfo::Size::reserved)       // reserved
+    .WriteUIntBE(static_cast<uint8_t>(FileType::eVerilog)) // filetype (default)
+    .WriteUIntBE(int64_t(123456789));                      // timezero
 
     // 4. Compare
     // Since stream includes binary 0s, we compare underlying strings
-    EXPECT_EQ(os.str().size(), expected_os.str().size());
-    EXPECT_EQ(os.str(), expected_os.str());
+    std::string expected_str(expected_vec.begin(), expected_vec.end());
+    EXPECT_EQ(os.str().size(), expected_str.size());
+    EXPECT_EQ(os.str(), expected_str);
 }
 
 } // namespace fst
