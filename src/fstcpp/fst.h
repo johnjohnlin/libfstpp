@@ -35,10 +35,14 @@ enum class FileType : uint8_t {
 };
 
 enum class EncodingType : uint8_t {
-	eBinary = 1, // 1 bit per bit to represent 0,1
-	eVerilog = 2, // 2 bits per bit to represent X,Z
-	eVhdl = 4, // 4 bits per bit to represent H,U,W,L,-,?
+	eBinary = 0, // 1 bit per bit to represent 0,1
+	eVerilog = 1, // 2 bits per bit to represent X,Z
+	eVhdl = 2, // 4 bits per bit to represent H,U,W,L,-,?
 };
+[[maybe_unused]]
+static inline constexpr unsigned BitPerEncodedBit(EncodingType type) {
+	return 1 << static_cast<uint8_t>(type);
+}
 [[maybe_unused]] static const char* kEncodedBitToCharTable = "01xzhuwl";
 
 struct Hierarchy {

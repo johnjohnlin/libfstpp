@@ -7,7 +7,6 @@
 // C++ standard library headers
 #include <iostream>
 #include <numeric>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -41,9 +40,9 @@ namespace fst {
 namespace detail {
 
 void BlackoutData::EmitDumpActive(uint64_t current_timestamp, bool enable) {
-	StreamWriteHelper h(buffer);
+	StreamVectorWriteHelper h(buffer);
 	h
-	.WriteUInt<uint8_t>(enable)
+	.WriteUIntBE<uint8_t>(enable)
 	.WriteLEB128(current_timestamp - previous_timestamp);
 	++count;
 }
@@ -99,10 +98,10 @@ void Writer::SetScope(
 	const string_view_ scopename, const string_view_ scopecomp
 ) {
 	CHECK(not hierarchy_finalized_);
-	StreamWriteHelper h(hierarchy_buffer_);
+	StreamVectorWriteHelper h(hierarchy_buffer_);
 	h
-	.WriteUInt<uint8_t>(Hierarchy::ScopeControlType::eVcdScope)
-	.WriteUInt<uint8_t>(scopetype)
+	.WriteUIntBE<uint8_t>(Hierarchy::ScopeControlType::eVcdScope)
+	.WriteUIntBE<uint8_t>(scopetype)
 	.WriteString0(scopename)
 	.WriteString0(scopecomp);
 	++header_.num_scopes;
@@ -111,8 +110,8 @@ void Writer::SetScope(
 void Writer::Upscope() {
 	CHECK(not hierarchy_finalized_);
 	// TODO: shall we inline it?
-	StreamWriteHelper h(hierarchy_buffer_);
-	h.WriteUInt<uint8_t>(Hierarchy::ScopeControlType::eVcdUpscope);
+	StreamVectorWriteHelper h(hierarchy_buffer_);
+	h.WriteUIntBE<uint8_t>(Hierarchy::ScopeControlType::eVcdUpscope);
 }
 
 Handle Writer::CreateVar(
@@ -122,7 +121,7 @@ Handle Writer::CreateVar(
 ) {
 	CHECK(not hierarchy_finalized_);
 	// Write hierarchy entry: type, direction, name, length, alias
-	StreamWriteHelper h(hierarchy_buffer_);
+	StreamVectorWriteHelper h(hierarchy_buffer_);
 
 	// determine real/string handling like original C implementation
 	bool is_real = false;
@@ -154,15 +153,15 @@ Handle Writer::CreateVar(
 	}
 
 	h
-	.WriteUInt<uint8_t>(vartype)
-	.WriteUInt<uint8_t>(vardir)
+	.WriteUIntBE<uint8_t>(vartype)
+	.WriteUIntBE<uint8_t>(vardir)
 	.WriteString0(name)
 	.WriteLEB128(bitwidth)
 	.WriteLEB128(is_alias ? alias_handle : 0);
 
 	// If alias_handle == 0, we must allocate geom/valpos/curval entries and create a new handle
 	if (not is_alias) {
-		StreamWriteHelper g(geometry_buffer_);
+		StreamVectorWriteHelper g(geometry_buffer_);
 		// I don't know why the original C implementation encode bitwidth again
 		const uint32_t geom_len = (
 			bitwidth == 0 ? uint32_t(-1) :
@@ -307,37 +306,26 @@ void Writer::WriteHeader_(const Header& header, ostream& os) {
 
 namespace { // compression helpers
 
-// TODO: replace with C++20 concepts
-#if 0
-template <typename T>
-concept BufferLike = requires(T v) {
-	{ v.data() } -> std::same_as<char*>;
-	{ v.size() } -> std::same_as<std::size_t>;
-};
-#endif
-
 // These API pass compressed_data to avoid frequent reallocations
-template<typename BufferLike1, typename BufferLike2>
 void CompressUsingLz4(
-	const BufferLike1& uncompressed_data,
-	BufferLike2& compressed_data
+	const vector<uint8_t>& uncompressed_data,
+	vector<uint8_t>& compressed_data
 ) {
 	const int uncompressed_size = uncompressed_data.size();
 	const int compressed_bound = LZ4_compressBound(uncompressed_size);
 	compressed_data.resize(compressed_bound);
 	const int compressed_size = LZ4_compress_default(
-		uncompressed_data.data(),
-		compressed_data.data(),
+		reinterpret_cast<const char*>(uncompressed_data.data()),
+		reinterpret_cast<char*>(compressed_data.data()),
 		uncompressed_size,
 		compressed_bound
 	);
 	compressed_data.resize(compressed_size);
 }
 
-template<typename BufferLike1, typename BufferLike2>
 void CompressUsingZlib(
-	const BufferLike1& uncompressed_data,
-	BufferLike2& compressed_data,
+	const vector<uint8_t>& uncompressed_data,
+	vector<uint8_t>& compressed_data,
 	int level
 ) {
 	// compress using zlib
@@ -357,9 +345,11 @@ void CompressUsingZlib(
 	compressed_data.resize(compressed_bound);
 }
 
-template<typename BufferLike1, typename BufferLike2>
-auto SelectSmaller(const BufferLike1& compressed_data, const BufferLike2& uncompressed_data) {
-	pair<const char*, size_t> ret;
+pair<const uint8_t*, size_t> SelectSmaller(
+	const vector<uint8_t>& compressed_data,
+	const vector<uint8_t>& uncompressed_data
+) {
+	pair<const uint8_t*, size_t> ret;
 	if (compressed_data.size() < uncompressed_data.size()) {
 		ret.first = compressed_data.data();
 		ret.second = compressed_data.size();
@@ -375,15 +365,14 @@ auto SelectSmaller(const BufferLike1& compressed_data, const BufferLike2& uncomp
 // AppendHierarchy_ and AppendGeometry_ shares a very similar structure
 // But they are slightly different in the original C implementation...
 void Writer::AppendGeometry_(ostream& os) {
-	const string& geometry_uncompressed_data = geometry_buffer_.str();
-	if (geometry_uncompressed_data.empty()) {
+	if (geometry_buffer_.empty()) {
 		// skip the geometry block if there is no data
 		return;
 	}
-	vector<char> geometry_compressed_data;
-	CompressUsingZlib(geometry_uncompressed_data, geometry_compressed_data, 9);
+	vector<uint8_t> geometry_buffer_compressed_;
+	CompressUsingZlib(geometry_buffer_, geometry_buffer_compressed_, 9);
 	// TODO: Replace with structured binding in C++17
-	const auto selected_pair = SelectSmaller(geometry_compressed_data, geometry_uncompressed_data);
+	const auto selected_pair = SelectSmaller(geometry_buffer_compressed_, geometry_buffer_);
 	const auto selected_data = selected_pair.first;
 	const auto selected_size = selected_pair.second;
 
@@ -392,7 +381,7 @@ void Writer::AppendGeometry_(ostream& os) {
 	.Seek(0, ios_base::end)
 	// 16 is for the uncompressed_size and header_.num_handles
 	.WriteBlockHeader(BlockType::Geometry, selected_size + 16)
-	.WriteUInt<uint64_t>(geometry_uncompressed_data.size())
+	.WriteUInt<uint64_t>(geometry_buffer_.size())
 	// I don't know why the original C implementation write num_handles again here
 	// but we have to follow it
 	.WriteUInt(header_.num_handles)
@@ -400,20 +389,18 @@ void Writer::AppendGeometry_(ostream& os) {
 }
 
 void Writer::AppendHierarchy_(ostream& os) {
-	const string& hierarchy_uncompressed_data = hierarchy_buffer_.str();
-	if (hierarchy_uncompressed_data.empty()) {
+	if (hierarchy_buffer_.empty()) {
 		// skip the hierarchy block if there is no data
 		return;
 	}
 
 	// compress hierarchy_buffer_ using LZ4.
-	const int uncompressed_size = hierarchy_uncompressed_data.size();
-	const int compressed_bound = LZ4_compressBound(uncompressed_size);
-	vector<char> hierarchy_compressed_data(compressed_bound);
+	const int compressed_bound = LZ4_compressBound(hierarchy_buffer_.size());
+	vector<uint8_t> hierarchy_buffer_compressed_(compressed_bound);
 	const int compressed_size = LZ4_compress_default(
-		hierarchy_uncompressed_data.data(),
-		hierarchy_compressed_data.data(),
-		uncompressed_size,
+		reinterpret_cast<const char*>(hierarchy_buffer_.data()),
+		reinterpret_cast<char*>(hierarchy_buffer_compressed_.data()),
+		hierarchy_buffer_.size(),
 		compressed_bound
 	);
 
@@ -422,8 +409,8 @@ void Writer::AppendHierarchy_(ostream& os) {
 	.Seek(0, ios_base::end)
 	// +16 is for the uncompressed_size
 	.WriteBlockHeader(BlockType::HierarchyLz4Compressed, compressed_size + 8)
-	.WriteUInt<uint64_t>(uncompressed_size)
-	.Write(hierarchy_compressed_data.data(), compressed_size);
+	.WriteUInt<uint64_t>(hierarchy_buffer_.size())
+	.Write(hierarchy_buffer_compressed_.data(), compressed_size);
 }
 
 void Writer::AppendBlackout_(ostream& os) {
@@ -431,7 +418,7 @@ void Writer::AppendBlackout_(ostream& os) {
 		// skip the blackout block if there is no data
 		return;
 	}
-	const string& blackout_data = blackout_data_.buffer.str();
+	const vector<uint8_t>& blackout_data = blackout_data_.buffer;
 	const auto begin_of_blackout_block = os.tellp();
 	StreamWriteHelper h(os);
 	h
@@ -449,7 +436,7 @@ void Writer::AppendBlackout_(ostream& os) {
 	.WriteBlockHeader(BlockType::Blackout, size_of_blackout_block - kSharedBlockHeaderSize);
 }
 
-void detail::ValueChangeData::WriteInitialBits(ostream& os) const {
+void detail::ValueChangeData::WriteInitialBits(vector<uint8_t>& os) const {
 	// Build vc_bits_data by concatenating each variable's initial bits as documented.
 	// We will not compress for now; just generate the raw bytes and print summary to stdout.
 	for (size_t i = 0; i < variable_infos.size(); ++i) {
@@ -458,37 +445,34 @@ void detail::ValueChangeData::WriteInitialBits(ostream& os) const {
 	}
 }
 
-vector<vector<char>> detail::ValueChangeData::ComputeWaveData() const {
-	stringstream ss;
-	vector<vector<char>> data;
-	for (auto& v : variable_infos) {
-		v.DumpValueChanges(ss);
-		const string& s = ss.str();
-		data.emplace_back(s.begin(), s.end());
-		ss.str("");
+vector<vector<uint8_t>> detail::ValueChangeData::ComputeWaveData() const {
+	const size_t N = variable_infos.size();
+	vector<vector<uint8_t>> data(N);
+	for (size_t i = 0; i < N; ++i) {
+		variable_infos[i].DumpValueChanges(data[i]);
 	}
 	return data;
 }
 
 vector<int64_t> detail::ValueChangeData::UniquifyWaveData(
-	vector<vector<char>>& data
+	vector<vector<uint8_t>>& data
 ) {
 	// After this function, positions[i] is:
 	//  - = 0: If data[i] is unique (first occurrence)
 	//  - < 0: If data[i] is a duplicate, encoded as -(original_index + 1)
 	vector<int64_t> positions(data.size(), 0);
 	struct MyHash {
-		size_t operator()(const vector<char>* vec) const {
-			const string_view_ sv(vec->data(), vec->size());
+		size_t operator()(const vector<uint8_t>* vec) const {
+			const string_view_ sv((const char*)vec->data(), vec->size());
 			return hash<string_view_>()(sv);
 		}
 	};
 	struct MyEqual {
-		bool operator()(const vector<char>* a, const vector<char>* b) const {
+		bool operator()(const vector<uint8_t>* a, const vector<uint8_t>* b) const {
 			return *a == *b;
 		}
 	};
-	unordered_map<const vector<char>*, int64_t, MyHash, MyEqual> data_map;
+	unordered_map<const vector<uint8_t>*, int64_t, MyHash, MyEqual> data_map;
 	for (size_t i = 0; i < data.size(); ++i) {
 		if (data[i].empty()) {
 			continue;
@@ -510,7 +494,7 @@ vector<int64_t> detail::ValueChangeData::UniquifyWaveData(
 
 uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
 	ostream& os,
-	const vector<vector<char>>& data,
+	const vector<vector<uint8_t>>& data,
 	vector<int64_t>& positions,
 	WriterPackType pack_type
 ) {
@@ -522,7 +506,7 @@ uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
 	StreamWriteHelper h(os);
 	int64_t previous_size = 1;
 	uint64_t written_count = 0;
-	vector<char> compressed_data;
+	vector<uint8_t> compressed_data;
 	for (size_t i = 0; i < positions.size(); ++i) {
 		if (positions[i] < 0) {
 			// duplicate (negative index), do nothing
@@ -530,7 +514,7 @@ uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
 			// no change (empty data), positions[i] remains 0
 		} else {
 			// try to compress
-			const char* selected_data;
+			const uint8_t* selected_data;
 			size_t selected_size;
 			if (pack_type == WriterPackType::eNoCompression or data[i].size() < 32) {
 				selected_data = data[i].data();
@@ -602,9 +586,9 @@ void detail::ValueChangeData::WriteEncodedPositions(const vector<int64_t>& encod
 	}
 }
 
-void detail::ValueChangeData::WriteTimestamps(ostream& os) const {
+void detail::ValueChangeData::WriteTimestamps(vector<uint8_t>& os) const {
 	// Build LEB128-encoded delta stream (first delta is timestamp[0] - 0)
-	StreamWriteHelper h(os);
+	StreamVectorWriteHelper h(os);
 	uint64_t prev = 0;
 	for (size_t i = 0; i < timestamps.size(); ++i) {
 		const uint64_t cur = timestamps[i];
@@ -645,24 +629,23 @@ void Writer::FlushValueChangeDataConstPart_(
 
 	// 2. Bits Section
 	{
-		stringstream ss;
-		vcd.WriteInitialBits(ss);
-		string raw = ss.str();
-		vector<char> compressed_data;
-		const char* selected_data;
+		vector<uint8_t> bits_data;
+		vcd.WriteInitialBits(bits_data);
+		vector<uint8_t> bits_data_compressed;
+		const uint8_t* selected_data;
 		size_t selected_size;
-		if (pack_type == WriterPackType::eNoCompression) {
-			selected_data = raw.data();
-			selected_size = raw.size();
+		if (pack_type == WriterPackType::eNoCompression or bits_data.size() < 32) {
+			selected_data = bits_data.data();
+			selected_size = bits_data.size();
 		} else {
-			CompressUsingZlib(raw, compressed_data, 4);
-			const auto selected_pair = SelectSmaller(compressed_data, raw);
+			CompressUsingZlib(bits_data, bits_data_compressed, 4);
+			const auto selected_pair = SelectSmaller(bits_data_compressed, bits_data);
 			selected_data = selected_pair.first;
 			selected_size = selected_pair.second;
 		}
 
 		h
-		.WriteLEB128(raw.size()) // uncompressed length
+		.WriteLEB128(bits_data.size()) // uncompressed length
 		.WriteLEB128(selected_size) // compressed length
 		.WriteLEB128(vcd.variable_infos.size()) // bits count
 		.Write(selected_data, selected_size);
@@ -677,17 +660,14 @@ void Writer::FlushValueChangeDataConstPart_(
 			wave_data.begin(), wave_data.end(), size_t(0),
 			[](size_t a, const auto& b) { return a + b.size(); }
 		);
-		stringstream ss;
-		const uint64_t count = detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(ss, wave_data, positions, pack_type);
-		(void)count;
-		const string raw = ss.str();
 		h
 		// Note: this is not a typo, I expect we shall write count here.
 		// but the spec indeed write vcd.variable_infos.size(),
 		// which is repeated 1 times in header block, 2 times in valuechange block
 		.WriteLEB128(vcd.variable_infos.size())
-		.WriteUInt(uint8_t('4'))
-		.Write(raw.data(), raw.size());
+		.WriteUInt(uint8_t('4'));
+		const uint64_t count = detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(os, wave_data, positions, pack_type);
+		(void)count;
 		return make_pair(positions, memory_usage);
 	}();
 	const auto positions = p_tmp2.first;
@@ -703,24 +683,23 @@ void Writer::FlushValueChangeDataConstPart_(
 
 	// 5. Time Section
 	{
-		stringstream ss;
-		vcd.WriteTimestamps(ss);
-		const string raw = ss.str();
-		vector<char> compressed_data;
-		const char* selected_data;
+		vector<uint8_t> time_data;
+		vcd.WriteTimestamps(time_data);
+		vector<uint8_t> time_data_compressed;
+		const uint8_t* selected_data;
 		size_t selected_size;
 		if (pack_type == WriterPackType::eNoCompression) {
-			selected_data = raw.data();
-			selected_size = raw.size();
+			selected_data = time_data.data();
+			selected_size = time_data.size();
 		} else {
-			CompressUsingZlib(raw, compressed_data, 9);
-			const auto selected_pair = SelectSmaller(compressed_data, raw);
+			CompressUsingZlib(time_data, time_data_compressed, 9);
+			const auto selected_pair = SelectSmaller(time_data_compressed, time_data);
 			selected_data = selected_pair.first;
 			selected_size = selected_pair.second;
 		}
 		h
 		.Write(selected_data, selected_size) // time data
-		.WriteUInt(raw.size()) // uncompressed len
+		.WriteUInt(time_data.size()) // uncompressed len
 		.WriteUInt(selected_size) // compressed len
 		.WriteUInt(uint64_t(vcd.timestamps.size())); // count
 	}
@@ -780,7 +759,7 @@ void Writer::SetAttrBegin(
 ) {
 	CHECK(not hierarchy_finalized_);
 
-	StreamWriteHelper h(hierarchy_buffer_);
+	StreamVectorWriteHelper h(hierarchy_buffer_);
 
 	if (attrtype > Hierarchy::AttrType::eMax) {
 		attrtype = Hierarchy::AttrType::eMisc;
@@ -812,9 +791,9 @@ void Writer::SetAttrBegin(
 	}
 
 	h
-	.WriteUInt(static_cast<uint8_t>(Hierarchy::ScopeControlType::eGenAttrBegin))
-	.WriteUInt(static_cast<uint8_t>(attrtype))
-	.WriteUInt(static_cast<uint8_t>(subtype))
+	.WriteUIntBE(static_cast<uint8_t>(Hierarchy::ScopeControlType::eGenAttrBegin))
+	.WriteUIntBE(static_cast<uint8_t>(attrtype))
+	.WriteUIntBE(static_cast<uint8_t>(subtype))
 	.WriteString0(attrname)
 	.WriteLEB128(arg);
 }

@@ -8,12 +8,15 @@
 #include <cstdint>
 #include <iostream>
 #include <numeric>
-#include <sstream>
 // Other libraries' .h files.
 #include <gtest/gtest.h>
 // Your project's .h files.
 
 using namespace std;
+
+static const string V2S(vector<uint8_t>& v) {
+    return string(reinterpret_cast<char*>(v.data()), v.size());
+}
 
 namespace fst {
 
@@ -30,20 +33,20 @@ protected:
     // For testing internal function called by FlushValueChangeData.
     // We need to verify the internal function behavior
     // since value change data is too complex to test as a whole.
-    static void FlushValueChangeData_Timestamps(ostringstream& os, const vector<uint64_t>& timestamps) {
+    static void FlushValueChangeData_Timestamps(vector<uint8_t> &buf, const vector<uint64_t>& timestamps) {
         detail::ValueChangeData vcd;
         vcd.timestamps = timestamps;
-        vcd.WriteTimestamps(os);
+        vcd.WriteTimestamps(buf);
     }
 
     static vector<int64_t> FlushValueChangeData_ValueChanges_UniquifyWaveData(
-        vector<vector<char>> &data
+        vector<vector<uint8_t>> &data
     ) {
         return detail::ValueChangeData::UniquifyWaveData(data);
     }
 
     static uint64_t FlushValueChangeData_ValueChanges_EncodePositionsAndWriteUniqueWaveData(
-        ostringstream &os, const vector<vector<char>> &data,
+        ostringstream &os, const vector<vector<uint8_t>> &data,
         vector<int64_t> &positions
     ) {
         return detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(os, data, positions, WriterPackType::eNoCompression);
@@ -60,13 +63,13 @@ protected:
 // Tests for FlushValueChangeData_ValueChanges_UniquifyWaveData
 ////////////////////////////////////////////////
 TEST_F(WriterTest, FlushValueChangeData_ValueChanges_UniquifyWaveData_NoData) {
-    vector<vector<char>> data;
+    vector<vector<uint8_t>> data;
     auto positions = FlushValueChangeData_ValueChanges_UniquifyWaveData(data);
     EXPECT_TRUE(positions.empty());
 }
 
 TEST_F(WriterTest, FlushValueChangeData_ValueChanges_UniquifyWaveData_AllEmpty) {
-    vector<vector<char>> data = {{}, {}, {}};
+    vector<vector<uint8_t>> data = {{}, {}, {}};
     auto positions = FlushValueChangeData_ValueChanges_UniquifyWaveData(data);
     EXPECT_EQ(positions.size(), 3);
     EXPECT_EQ(positions[0], 0);
@@ -75,20 +78,20 @@ TEST_F(WriterTest, FlushValueChangeData_ValueChanges_UniquifyWaveData_AllEmpty) 
 }
 
 TEST_F(WriterTest, FlushValueChangeData_ValueChanges_UniquifyWaveData_NoDuplicates) {
-    vector<vector<char>> data = {{'a', 'b'}, {'c', 'd'}, {'e', 'f'}};
+    vector<vector<uint8_t>> data = {{'a', 'b'}, {'c', 'd'}, {'e', 'f'}};
     auto positions = FlushValueChangeData_ValueChanges_UniquifyWaveData(data);
     EXPECT_EQ(positions.size(), 3);
     EXPECT_EQ(positions[0], 0);
     EXPECT_EQ(positions[1], 0);
     EXPECT_EQ(positions[2], 0);
     // Data should remain unchanged
-    EXPECT_EQ(data[0], vector<char>({'a', 'b'}));
-    EXPECT_EQ(data[1], vector<char>({'c', 'd'}));
-    EXPECT_EQ(data[2], vector<char>({'e', 'f'}));
+    EXPECT_EQ(data[0], vector<uint8_t>({'a', 'b'}));
+    EXPECT_EQ(data[1], vector<uint8_t>({'c', 'd'}));
+    EXPECT_EQ(data[2], vector<uint8_t>({'e', 'f'}));
 }
 
 TEST_F(WriterTest, FlushValueChangeData_ValueChanges_UniquifyWaveData_WithDuplicates) {
-    vector<vector<char>> data = {
+    vector<vector<uint8_t>> data = {
         {'a', 'b'},
         {'c', 'd'},
         {'a', 'b'}, // duplicate of [0]
@@ -109,16 +112,16 @@ TEST_F(WriterTest, FlushValueChangeData_ValueChanges_UniquifyWaveData_WithDuplic
     EXPECT_TRUE(data[4].empty());
     EXPECT_TRUE(data[5].empty());
     // Original data should remain intact
-    EXPECT_EQ(data[0], vector<char>({'a', 'b'}));
-    EXPECT_EQ(data[1], vector<char>({'c', 'd'}));
-    EXPECT_EQ(data[3], vector<char>({'e', 'f'}));
+    EXPECT_EQ(data[0], vector<uint8_t>({'a', 'b'}));
+    EXPECT_EQ(data[1], vector<uint8_t>({'c', 'd'}));
+    EXPECT_EQ(data[3], vector<uint8_t>({'e', 'f'}));
 }
 
 ////////////////////////////////////////////////
 // Tests for FlushValueChangeData_ValueChanges_EncodePositionsAndWriteUniqueWaveData
 ////////////////////////////////////////////////
 TEST_F(WriterTest, FlushValueChangeData_ValueChanges_EncodePositionsAndWriteUniqueWaveData_Negative) {
-    vector<vector<char>> data = {
+    vector<vector<uint8_t>> data = {
         {}, // empty, positions[0] must be 0
         {'a', 'b'}, // the first block to write, positions[1] must be 0
         {}, // empty, positions[2] must be 0
@@ -207,9 +210,8 @@ TEST_F(WriterTest, FlushValueChangeData_Timestamps) {
     // cumsum first since the function encodes timestamps as deltas
     partial_sum(timestamps.begin(), timestamps.end(), timestamps.begin());
 
-    ostringstream os;
-    FlushValueChangeData_Timestamps(os, timestamps);
-    string result = os.str();
+    vector<uint8_t> buf;
+    FlushValueChangeData_Timestamps(buf, timestamps);
     // Expected varint encoding of the timestamps
     // The LEB128 shall looks like 1 12 123 1234 with the 1 becomes 0x81
     string expected =
@@ -222,7 +224,7 @@ TEST_F(WriterTest, FlushValueChangeData_Timestamps) {
         "\x81\x82\x83\x84\x85\x06"
         "\x81\x82\x83\x84\x85\x86\x07"
         "\x81\x82\x83\x84\x85\x86\x87\x08"s;
-    EXPECT_EQ(result, expected);
+    EXPECT_EQ(V2S(buf), expected);
 }
 
 } // namespace fst

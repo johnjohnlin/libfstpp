@@ -10,7 +10,6 @@
 #include <cstdint>
 #include <ctime>
 #include <fstream>
-#include <sstream>
 #include <string>
 #include <vector>
 // Other libraries' .h files.
@@ -32,7 +31,7 @@ static inline constexpr string_view_ SafeStringView(const char* str) noexcept {
 
 // We define WriterWaveData here for better code inlining, no forward declaration
 struct BlackoutData {
-	std::ostringstream buffer;
+	std::vector<uint8_t> buffer;
 	uint64_t previous_timestamp = 0;
 	uint64_t count = 0;
 
@@ -47,14 +46,14 @@ struct ValueChangeData {
 	ValueChangeData();
 	~ValueChangeData();
 
-	void WriteInitialBits(std::ostream &os) const;
-	std::vector<std::vector<char>> ComputeWaveData() const;
+	void WriteInitialBits(std::vector<uint8_t> &os) const;
+	std::vector<std::vector<uint8_t>> ComputeWaveData() const;
 	static std::vector<int64_t> UniquifyWaveData(
-		std::vector<std::vector<char>> &data
+		std::vector<std::vector<uint8_t>> &data
 	);
 	static uint64_t EncodePositionsAndWriteUniqueWaveData(
 		std::ostream &os,
-		const std::vector<std::vector<char>> &unique_data,
+		const std::vector<std::vector<uint8_t>> &unique_data,
 		std::vector<int64_t> &positions,
 		WriterPackType pack_type
 	);
@@ -62,7 +61,7 @@ struct ValueChangeData {
 		const std::vector<int64_t> &encoded_positions,
 		std::ostream &os
 	);
-	void WriteTimestamps(std::ostream &os) const;
+	void WriteTimestamps(std::vector<uint8_t> &os) const;
 	void KeepOnlyTheLatestValue();
 };
 
@@ -118,7 +117,7 @@ public:
 		const string_view_ attrname, uint64_t arg
 	);
 	inline void SetAttrEnd() {
-		hierarchy_buffer_.put(static_cast<char>(Hierarchy::ScopeControlType::eGenAttrEnd));
+		hierarchy_buffer_.push_back(static_cast<uint8_t>(Hierarchy::ScopeControlType::eGenAttrEnd));
 	}
 	EnumHandle CreateEnumTable(
 		const string_view_ name,
@@ -214,8 +213,8 @@ private:
 	// 2. For header, we keep the data structure in memory since it is quite small
 	// 3. For wave data, we keep a complicated data structure in memory, and flush them to file when necessary
 	std::ofstream main_fst_file_;
-	std::ostringstream hierarchy_buffer_;
-	std::ostringstream geometry_buffer_;
+	std::vector<uint8_t> hierarchy_buffer_;
+	std::vector<uint8_t> geometry_buffer_;
 	Header header_{};
 	detail::BlackoutData blackout_data_;
 	detail::ValueChangeData value_change_data_;

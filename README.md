@@ -15,7 +15,7 @@ The unittests are written in C++20.
 - **Robust Testing**: Comprehensive unit tests written in C++20 to ensure correctness. Coverage is also generated and checked (70% line and 70% function coverage).
 - **Bit-true**: The implementation is bit-true to the original `fstapi.c` (tested in unittests).
 
-## Regression Reports
+## Regression Reports (WIP due to permission issue)
 We generate a detailed regression summary for every push on the `master` branch.
 To view it:
 1. Go to the **Commit Detail** page (click the **Commit SHA**, usually above the files list).

@@ -8,8 +8,8 @@
 // C++ standard library headers
 #include <algorithm>
 #include <cstdint>
-#include <cstdlib>
-#include <string>
+// #include <cstdlib>
+// #include <string>
 #include <vector>
 // Other libraries' .h files.
 // Your project's .h files.
@@ -49,8 +49,8 @@ struct VariableInfo final {
 		);
 		data.resize(last_written_bytes);
 	}
-	void DumpInitialBits(std::ostream &os) const;
-	void DumpValueChanges(std::ostream &os) const;
+	void DumpInitialBits(std::vector<uint8_t> &buf) const;
+	void DumpValueChanges(std::vector<uint8_t> &buf) const;
 
 	// We only need to make this class compatible with vector
 	// delete copy constructor and assignment operator
@@ -74,22 +74,22 @@ private:
 			info.data.resize(0);
 		}
 		StreamVectorWriteHelper(info.data)
-		.WriteUInt(current_time_index) // time index
-		.WriteUInt(encoding); // encoding
+		.Write(current_time_index) // time index
+		.Write(encoding); // encoding
 	}
 
 public:
 	void Construct() {
 		StreamVectorWriteHelper(info.data)
-		.WriteUInt(uint64_t(0)) // initial time index
-		.WriteUInt(EncodingType::eBinary) // initial encoding
-		.WriteUInt(double(0.0)); // initial value
+		.Write(uint64_t(0)) // initial time index
+		.Write(EncodingType::eBinary) // initial encoding
+		.Write(double(0.0)); // initial value
 	}
 
 	uint64_t EmitValueChange(uint64_t current_time_index, const uint64_t val) {
 		EmitValueChangeCommonPart(current_time_index, EncodingType::eBinary);
 		// val comes in as uint64_t bits representing the double. Write it directly.
-		StreamVectorWriteHelper(info.data).WriteUInt(val);
+		StreamVectorWriteHelper(info.data).Write(val);
 		return sizeof(uint64_t) + sizeof(EncodingType) + sizeof(double);
 	}
 
@@ -102,16 +102,17 @@ public:
 		throw std::runtime_error("EmitValueChange(uint64_t*) not supported for Double");
 	}
 
-	void DumpInitialBits(std::ostream &os) const {
+	void DumpInitialBits(std::vector<uint8_t> &buf) const {
 		DCHECK_GT(info.data.size(), sizeof(uint64_t) + sizeof(EncodingType));
 		StreamVectorReaderHelper rh(info.data.data());
+		StreamVectorWriteHelper wh(buf);
 		rh.Skip(sizeof(uint64_t) + sizeof(EncodingType));
-		auto v = rh.ReadUInt<double>();
-		os.write(reinterpret_cast<const char*>(&v), sizeof(v));
+		auto v = rh.Read<double>();
+		wh.Write<double>(v);
 	}
 
-	void DumpValueChanges(std::ostream &os) const {
-		StreamWriteHelper h(os);
+	void DumpValueChanges(std::vector<uint8_t> &buf) const {
+		StreamVectorWriteHelper wh(buf);
 		StreamVectorReaderHelper rh(info.data.data());
 		const uint8_t* tail = info.data.data() + info.data.size();
 
@@ -121,8 +122,8 @@ public:
 		while (true) {
 			if (rh.ptr == tail) break;
 			CHECK_GT(tail, rh.ptr);
-			const auto time_index = rh.ReadUInt<uint64_t>();
-			const auto enc = rh.ReadUInt<EncodingType>();
+			const auto time_index = rh.Read<uint64_t>();
+			const auto enc = rh.Read<EncodingType>();
 			const auto num_byte = sizeof(double);
 			if (first) {
 				// Note: [0] is initial value, which is already dumped in DumpInitialBits()
@@ -131,9 +132,9 @@ public:
 				CHECK(enc == EncodingType::eBinary);
 				const uint64_t delta_time_index = time_index - prev_time_index;
 				prev_time_index = time_index;
-				h.WriteLEB128(delta_time_index);
-				auto val = rh.PeekUInt<double>();
-				h.WriteFloat(val);
+				wh
+				.WriteLEB128(delta_time_index)
+				.Write<double>(rh.Peek<double>());
 			}
 			rh.Skip(num_byte);
 		}
@@ -155,46 +156,44 @@ private:
 			info.data.resize(0);
 		}
 		StreamVectorWriteHelper(info.data)
-		.WriteUInt(current_time_index) // time index
-		.WriteUInt(encoding) // encoding
+		.Write(current_time_index) // time index
+		.Write(encoding) // encoding
 		;
 	}
 
 	inline uint64_t ComputeEmitMemory(EncodingType encoding) {
-		return sizeof(T) * static_cast<unsigned>(encoding);
+		return sizeof(T) * BitPerEncodedBit(encoding);
 	}
 
 public:
 	void Construct() {
 		StreamVectorWriteHelper(info.data)
-		.WriteUInt(uint64_t(0)) // initial time index (don't care)
-		.WriteUInt(EncodingType::eVerilog) // initial encoding
-		.WriteUInt(T(0)).WriteUInt(T(-1)) // initial X value
+		.Write(uint64_t(0)) // initial time index (don't care)
+		.Write(EncodingType::eVerilog) // initial encoding
+		.Write(T(0)).Write(T(-1)) // initial X value
 		;
 	}
 
 	uint64_t EmitValueChange(uint64_t current_time_index, const uint64_t val) {
 		EmitValueChangeCommonPart(current_time_index, EncodingType::eBinary);
 		StreamVectorWriteHelper(info.data)
-		.WriteUInt<T>(val);
+		.Write<T>(val);
 		return sizeof(uint64_t) + sizeof(EncodingType) + ComputeEmitMemory(EncodingType::eBinary);
 	}
 
 	uint64_t EmitValueChange(uint64_t current_time_index, const uint32_t* val, EncodingType encoding) {
 		EmitValueChangeCommonPart(current_time_index, encoding);
 		StreamVectorWriteHelper h(info.data);
-		for (unsigned i = 0; i < static_cast<unsigned>(encoding); ++i) {
+		for (unsigned i = 0; i < BitPerEncodedBit(encoding); ++i) {
 			// C++17: replace this with if constexpr
 			if (sizeof(T) == 8) {
 				uint64_t v = val[1]; // high bits
 				v <<= 32;
 				v |= val[0]; // low bits
-				h
-				.WriteUInt(v);
+				h.Write(v);
 				val += 2;
 			} else {
-				h
-				.WriteUInt<T>(val[0]);
+				h.Write<T>(val[0]);
 				val += 1;
 			}
 		}
@@ -204,38 +203,38 @@ public:
 	uint64_t EmitValueChange(uint64_t current_time_index, const uint64_t* val, EncodingType encoding) {
 		EmitValueChangeCommonPart(current_time_index, encoding);
 		StreamVectorWriteHelper h(info.data);
-		for (unsigned i = 0; i < static_cast<unsigned>(encoding); ++i) {
-			h.WriteUInt<T>(val[i]);
+		for (unsigned i = 0; i < BitPerEncodedBit(encoding); ++i) {
+			h.Write<T>(val[i]);
 		}
 		return sizeof(uint64_t) + sizeof(EncodingType) + ComputeEmitMemory(encoding);
 	}
 
-	void DumpInitialBits(std::ostream &os) const {
+	void DumpInitialBits(std::vector<uint8_t> &buf) const {
 		// FST requires initial bits present
 		DCHECK_GT(info.data.size(), sizeof(uint64_t) + sizeof(EncodingType));
 		StreamVectorReaderHelper rh(info.data.data());
-		const auto time_index = rh.ReadUInt<uint64_t>(); (void)time_index;
-		const auto enc = rh.ReadUInt<EncodingType>();
+		const auto time_index = rh.Read<uint64_t>(); (void)time_index;
+		const auto enc = rh.Read<EncodingType>();
 		const auto bitwidth = info.bitwidth;
 
 		switch (enc) {
 		case EncodingType::eBinary: {
-			auto v0 = rh.ReadUInt<T>();
+			auto v0 = rh.Read<T>();
 			for (unsigned i = bitwidth; i-- > 0;) {
 				const char c = ((v0 >> i) & T(1)) ? '1' : '0';
-				os.put(c);
+				buf.push_back(c);
 			}
 			break;
 		}
 
 		case EncodingType::eVerilog: {
-			auto v0 = rh.ReadUInt<T>();
-			auto v1 = rh.ReadUInt<T>();
+			auto v0 = rh.Read<T>();
+			auto v1 = rh.Read<T>();
 			for (unsigned i = bitwidth; i-- > 0;) {
 				const T b1 = ((v1 >> i) & T(1));
 				const T b0 = ((v0 >> i) & T(1));
 				const char c = kEncodedBitToCharTable[(b1 << 1) | b0];
-				os.put(c);
+				buf.push_back(c);
 			}
 			break;
 		}
@@ -243,23 +242,23 @@ public:
 		// LCOV_EXCL_START
 		default:
 		case EncodingType::eVhdl: {
-			auto v0 = rh.ReadUInt<T>();
-			auto v1 = rh.ReadUInt<T>();
-			auto v2 = rh.ReadUInt<T>();
+			auto v0 = rh.Read<T>();
+			auto v1 = rh.Read<T>();
+			auto v2 = rh.Read<T>();
 			for (unsigned i = bitwidth; i-- > 0;) {
 				const T b2 = ((v2 >> i) & T(1));
 				const T b1 = ((v1 >> i) & T(1));
 				const T b0 = ((v0 >> i) & T(1));
 				const char c = kEncodedBitToCharTable[(b2 << 2) | (b1 << 1) | b0];
-				os.put(c);
+				buf.push_back(c);
 			}
 			break;
 		}}
 		// LCOV_EXCL_STOP
 	}
 
-	void DumpValueChanges(std::ostream &os) const {
-		StreamWriteHelper h(os);
+	void DumpValueChanges(std::vector<uint8_t> &buf) const {
+		StreamVectorWriteHelper h(buf);
 		StreamVectorReaderHelper rh(info.data.data());
 		const uint8_t* tail = info.data.data() + info.data.size();
 		const auto bitwidth = info.bitwidth;
@@ -271,9 +270,9 @@ public:
 					break;
 				}
 				DCHECK_GT(tail, rh.ptr);
-				const auto time_index = rh.ReadUInt<uint64_t>();
-				const auto enc = rh.ReadUInt<EncodingType>();
-				const auto num_element = static_cast<unsigned>(enc);
+				const auto time_index = rh.Read<uint64_t>();
+				const auto enc = rh.Read<EncodingType>();
+				const auto num_element = BitPerEncodedBit(enc);
 				const auto num_byte = num_element * sizeof(T);
 				if (first) {
 					// Note: [0] is initial value, which is already dumped in DumpInitialBits()
@@ -281,7 +280,7 @@ public:
 				} else {
 					unsigned val = 0;
 					for (unsigned i = 0; i < num_element; ++i) {
-						val |= rh.PeekUInt<T>(i);
+						val |= rh.Peek<T>(i);
 					}
 					uint64_t delta_time_index = time_index - prev_time_index;
 					prev_time_index = time_index;
@@ -311,9 +310,9 @@ public:
 					break;
 				}
 				CHECK_GT(tail, rh.ptr);
-				const auto time_index = rh.ReadUInt<uint64_t>();
-				const auto enc = rh.ReadUInt<EncodingType>();
-				const auto num_element = static_cast<unsigned>(enc);
+				const auto time_index = rh.Read<uint64_t>();
+				const auto enc = rh.Read<EncodingType>();
+				const auto num_element = BitPerEncodedBit(enc);
 				const auto num_byte = num_element * sizeof(T);
 				if (first) {
 					first = false;
@@ -324,7 +323,7 @@ public:
 					prev_time_index = time_index;
 					h
 					.WriteLEB128((delta_time_index << 1) | has_non_binary)
-					.WriteUIntPartialForValueChange(rh.PeekUInt<T>(), bitwidth);
+					.WriteUIntPartialForValueChange(rh.Peek<T>(), bitwidth);
 				}
 				rh.Skip(num_byte);
 			}
@@ -345,8 +344,8 @@ private:
 			info.data.resize(0);
 		}
 		StreamVectorWriteHelper(info.data)
-		.WriteUInt(current_time_index) // time index
-		.WriteUInt(encoding); // encoding
+		.Write(current_time_index) // time index
+		.Write(encoding); // encoding
 	}
 
 public:
@@ -354,16 +353,16 @@ public:
 		StreamVectorWriteHelper h(info.data);
 		const unsigned nw = num_words();
 		h
-		.WriteUInt(uint64_t(0)) // initial time index
-		.WriteUInt(EncodingType::eVerilog) // initial encoding
-		.WriteUInts(uint64_t(0), nw).WriteUInts(uint64_t(-1), nw); // initial X value
+		.Write(uint64_t(0)) // initial time index
+		.Write(EncodingType::eVerilog) // initial encoding
+		.Fill(uint64_t(0), nw).Fill(uint64_t(-1), nw); // initial X value
 	}
 
 	uint64_t EmitValueChange(uint64_t current_time_index, const uint64_t val) {
 		EmitValueChangeCommonPart(current_time_index, EncodingType::eBinary);
 		const unsigned nw = num_words();
 		StreamVectorWriteHelper h(info.data);
-		h.WriteUInt(val).WriteUInts(uint64_t(0), nw - 1);
+		h.Write(val).Fill(uint64_t(0), nw - 1);
 		return sizeof(uint64_t) + sizeof(EncodingType) + sizeof(uint64_t) * nw;
 	}
 
@@ -374,57 +373,58 @@ public:
 		// value_changes is vector<uint64_t>
 		const unsigned nw32 = (info.bitwidth + 31) / 32;
 		const unsigned nw64 = num_words();
-		for (unsigned i = 0; i < static_cast<unsigned>(encoding); ++i) {
+		const unsigned bpb = BitPerEncodedBit(encoding);
+		for (unsigned i = 0; i < bpb; ++i) {
 			for (unsigned j = 0; j < nw32/2; ++j) {
 				uint64_t v = val[1]; // high bits
 				v <<= 32;
 				v |= val[0]; // low bits
-				h.WriteUInt(v);
+				h.Write(v);
 				val += 2;
 			}
 			if (nw32 % 2 != 0) {
-				h.WriteUInt(uint64_t(val[0]));
+				h.Write(uint64_t(val[0]));
 				val += 1;
 			}
 		}
-		return sizeof(uint64_t) + sizeof(EncodingType) + sizeof(uint64_t) * nw64 * static_cast<unsigned>(encoding);
+		return sizeof(uint64_t) + sizeof(EncodingType) + sizeof(uint64_t) * nw64 * bpb;
 	}
 
 	uint64_t EmitValueChange(uint64_t current_time_index, const uint64_t *val, EncodingType encoding) {
 		EmitValueChangeCommonPart(current_time_index, encoding);
-		const unsigned nw64 = num_words() * static_cast<unsigned>(encoding);
-		StreamVectorWriteHelper(info.data).WriteUInts(val, nw64);
+		const unsigned nw64 = num_words() * BitPerEncodedBit(encoding);
+		StreamVectorWriteHelper(info.data).Fill(val, nw64);
 		return sizeof(uint64_t) + sizeof(EncodingType) + sizeof(uint64_t) * nw64;
 	}
 
-	void DumpInitialBits(std::ostream &os) const {
+	void DumpInitialBits(std::vector<uint8_t> &buf) const {
 		DCHECK_GT(info.data.size(), sizeof(uint64_t) + sizeof(EncodingType));
 		StreamVectorReaderHelper rh(info.data.data());
-		const auto time_index = rh.ReadUInt<uint64_t>(); (void)time_index;
-		const auto enc = rh.ReadUInt<EncodingType>();
+		const auto time_index = rh.Read<uint64_t>(); (void)time_index;
+		const auto enc = rh.Read<EncodingType>();
 		const unsigned nw = num_words();
 		switch (enc) {
 		case EncodingType::eBinary: {
 			for (unsigned word_index = nw; word_index-- > 0;) {
-				const uint64_t v0 = rh.PeekUInt<uint64_t>(word_index);
+				const uint64_t v0 = rh.Peek<uint64_t>(word_index);
 				const unsigned num_bit = (word_index * 64 + 64 > info.bitwidth) ? (info.bitwidth % 64) : 64;
 				for (unsigned bit_index = num_bit; bit_index-- > 0;) {
 					const char c = ((v0 >> bit_index) & uint64_t(1)) ? '1' : '0';
-					os.put(c);
+					buf.push_back(c);
 				}
 			}
 			break;
 		}
 		case EncodingType::eVerilog: {
 			for (unsigned word_index = nw; word_index-- > 0;) {
-				const uint64_t v0 = rh.PeekUInt<uint64_t>(nw*0 + word_index);
-				const uint64_t v1 = rh.PeekUInt<uint64_t>(nw*1 + word_index);
+				const uint64_t v0 = rh.Peek<uint64_t>(nw*0 + word_index);
+				const uint64_t v1 = rh.Peek<uint64_t>(nw*1 + word_index);
 				const unsigned num_bit = (word_index * 64 + 64 > info.bitwidth) ? (info.bitwidth % 64) : 64;
 				for (unsigned bit_index = num_bit; bit_index-- > 0;) {
 					const bool b0 = ((v0 >> bit_index) & uint64_t(1));
 					const bool b1 = ((v1 >> bit_index) & uint64_t(1));
 					const char c = kEncodedBitToCharTable[(b1 << 1) | b0];
-					os.put(c);
+					buf.push_back(c);
 				}
 			}
 			break;
@@ -434,27 +434,27 @@ public:
 			// Not supporting VHDL now
 			// LCOV_EXCL_START
 			for (unsigned word_index = nw; word_index-- > 0;) {
-				const uint64_t v0 = rh.PeekUInt<uint64_t>(nw*0 + word_index);
-				const uint64_t v1 = rh.PeekUInt<uint64_t>(nw*1 + word_index);
-				const uint64_t v2 = rh.PeekUInt<uint64_t>(nw*2 + word_index);
+				const uint64_t v0 = rh.Peek<uint64_t>(nw*0 + word_index);
+				const uint64_t v1 = rh.Peek<uint64_t>(nw*1 + word_index);
+				const uint64_t v2 = rh.Peek<uint64_t>(nw*2 + word_index);
 				const unsigned num_bit = (word_index * 64 + 64 > info.bitwidth) ? (info.bitwidth % 64) : 64;
 				for (unsigned bit_index = num_bit; bit_index-- > 0;) {
 					const bool b0 = ((v0 >> bit_index) & uint64_t(1));
 					const bool b1 = ((v1 >> bit_index) & uint64_t(1));
 					const bool b2 = ((v2 >> bit_index) & uint64_t(1));
 					const char c = kEncodedBitToCharTable[(b2 << 2) | (b1 << 1) | b0];
-					os.put(c);
+					buf.push_back(c);
 				}
 			}
 			break;
 			// LCOV_EXCL_STOP
 		}
-		rh.Skip(sizeof(uint64_t) * nw * static_cast<unsigned>(enc));
+		rh.Skip(sizeof(uint64_t) * nw * BitPerEncodedBit(enc));
 		}
 	}
 
-	void DumpValueChanges(std::ostream &os) const {
-		StreamWriteHelper h(os);
+	void DumpValueChanges(std::vector<uint8_t> &buf) const {
+		StreamVectorWriteHelper h(buf);
 		StreamVectorReaderHelper rh(info.data.data());
 		const uint8_t* tail = info.data.data() + info.data.size();
 		const unsigned nw = num_words();
@@ -466,9 +466,9 @@ public:
 		while (true) {
 			if (rh.ptr == tail) break;
 			DCHECK_GT(tail, rh.ptr);
-			const auto time_index = rh.ReadUInt<uint64_t>();
-			const auto enc = rh.ReadUInt<EncodingType>();
-			const auto num_element = static_cast<unsigned>(enc);
+			const auto time_index = rh.Read<uint64_t>();
+			const auto enc = rh.Read<EncodingType>();
+			const auto num_element = BitPerEncodedBit(enc);
 			const auto num_byte = num_element * nw * sizeof(uint64_t);
 			if (first) {
 				// Note: [0] is initial value, which is already dumped in DumpInitialBits()
@@ -481,11 +481,11 @@ public:
 				h.WriteLEB128((delta_time_index << 1) | has_non_binary);
 				if (bitwidth % 64 != 0) {
 					const unsigned remaining = bitwidth % 64;
-					uint64_t hi64 = rh.PeekUInt<uint64_t>(nw-1);
+					uint64_t hi64 = rh.Peek<uint64_t>(nw-1);
 					// Write from nw-1 to 1
 					for (unsigned j = nw - 1; j > 0; --j) {
-						uint64_t lo64 = rh.PeekUInt<uint64_t>(j-1);
-						h.WriteUInt(
+						uint64_t lo64 = rh.Peek<uint64_t>(j-1);
+						h.WriteUIntBE(
 							(hi64 << (64 - remaining)) |
 							(lo64 >> remaining)
 						);
@@ -496,7 +496,7 @@ public:
 				} else {
 					// Write from nw-1 to 0
 					for (unsigned j = nw; j-- > 0;) {
-						h.WriteUInt(rh.PeekUInt<uint64_t>(j));
+						h.WriteUIntBE(rh.Peek<uint64_t>(j));
 					}
 				}
 			}
@@ -555,15 +555,15 @@ inline uint32_t VariableInfo::EmitValueChange(uint64_t current_time_index, const
 	return last_written_bytes;
 }
 
-inline void VariableInfo::DumpInitialBits(std::ostream &os) const {
+inline void VariableInfo::DumpInitialBits(std::vector<uint8_t> &buf) const {
 	DispatchHelper([&](auto obj) {
-		obj.DumpInitialBits(os);
+		obj.DumpInitialBits(buf);
 	});
 }
 
-inline void VariableInfo::DumpValueChanges(std::ostream &os) const {
+inline void VariableInfo::DumpValueChanges(std::vector<uint8_t> &buf) const {
 	DispatchHelper([&](auto obj) {
-		obj.DumpValueChanges(os);
+		obj.DumpValueChanges(buf);
 	});
 }
 
