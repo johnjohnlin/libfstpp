@@ -118,6 +118,44 @@ TEST(VariableInfoTest, DumpValueChange_ScalarInt_10bit_Binary) {
                         "\x06\x02\x00"s);
 }
 
+TEST(VariableInfoTest, DumpValueChange_ScalarInt_40bits_Array32_Binary) {
+    VariableInfo vi(40, false);
+    uint64_t vals[] = {0, 1ULL<<8, 1ULL<<16, 1ULL<<24, 1ULL<<32};
+    vi.EmitValueChange(1, reinterpret_cast<uint32_t*>(&vals[0]), EncodingType::eBinary);
+    vi.EmitValueChange(3, reinterpret_cast<uint32_t*>(&vals[1]), EncodingType::eBinary);
+    vi.EmitValueChange(5, reinterpret_cast<uint32_t*>(&vals[2]), EncodingType::eBinary);
+    vi.EmitValueChange(7, reinterpret_cast<uint32_t*>(&vals[3]), EncodingType::eBinary);
+    vi.EmitValueChange(10, reinterpret_cast<uint32_t*>(&vals[4]), EncodingType::eBinary);
+    ostringstream os;
+    vi.DumpValueChanges(os);
+    // 1. Varint encoding of Time_index_delta << 1 | 1 since it contains only 0 and 1
+    // 2. data encoded as raw bits,aligned with MSB and packed into a whole number of bytes
+    EXPECT_EQ(os.str(), "\x02\x00\x00\x00\x00\x00"
+                        "\x04\x00\x00\x00\x01\x00"
+                        "\x04\x00\x00\x01\x00\x00"
+                        "\x04\x00\x01\x00\x00\x00"
+                        "\x06\x01\x00\x00\x00\x00"s);
+}
+
+TEST(VariableInfoTest, DumpValueChange_ScalarInt_Array64_Binary) {
+    VariableInfo vi(40);
+    uint64_t vals[] = {0, 0x5aULL<<8, 0xa5ULL<<16, 0x55ULL<<24, 0xaaULL<<32};
+    vi.EmitValueChange(1, reinterpret_cast<uint64_t*>(&vals[0]), EncodingType::eBinary);
+    vi.EmitValueChange(3, reinterpret_cast<uint64_t*>(&vals[1]), EncodingType::eBinary);
+    vi.EmitValueChange(5, reinterpret_cast<uint64_t*>(&vals[2]), EncodingType::eBinary);
+    vi.EmitValueChange(7, reinterpret_cast<uint64_t*>(&vals[3]), EncodingType::eBinary);
+    vi.EmitValueChange(10, reinterpret_cast<uint64_t*>(&vals[4]), EncodingType::eBinary);
+    ostringstream os;
+    vi.DumpValueChanges(os);
+    // 1. Varint encoding of Time_index_delta << 1 | 1 since it contains only 0 and 1
+    // 2. data encoded as raw bits,aligned with MSB and packed into a whole number of bytes
+    EXPECT_EQ(os.str(), "\x02\x00\x00\x00\x00\x00"
+                        "\x04\x00\x00\x00\x5a\x00"
+                        "\x04\x00\x00\xa5\x00\x00"
+                        "\x04\x00\x55\x00\x00\x00"
+                        "\x06\xaa\x00\x00\x00\x00"s);
+}
+
 TEST(VariableInfoTest, DumpValueChange_LongInt_Binary) {
     VariableInfo vi(68);
     vi.EmitValueChange(2, 0);
