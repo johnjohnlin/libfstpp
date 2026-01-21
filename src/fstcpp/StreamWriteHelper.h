@@ -225,15 +225,6 @@ struct StreamVectorWriteHelper {
 		}
 		return *this;
 	}
-
-	template<typename T>
-	StreamVectorWriteHelper& WriteUInts(T* u, size_t size) {
-		const size_t s = sizeof(u) * size;
-		vec.resize(vec.size() + s);
-		std::memcpy(vec.data() + vec.size() - s, u, s);
-		return *this;
-	}
-
 };
 
 struct StreamVectorReaderHelper {
