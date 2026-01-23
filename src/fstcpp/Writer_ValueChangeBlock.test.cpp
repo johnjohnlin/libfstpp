@@ -195,6 +195,22 @@ TEST_F(WriterTest, FlushValueChangeData_EncodedPositions) {
     EXPECT_EQ(os.str(), expected);
 }
 
+TEST_F(WriterTest, FlushValueChangeData_6BitsLengthZeros) {
+    // Consolidated test with boundary values
+    // 35 zeros
+    vector<int64_t> positions(35, 0);
+    ostringstream os;
+    FlushValueChangeData_EncodedPositions(os, positions);
+
+    // 0 -> length 35 -> (35<<1)|0 = 70 -> [0x46]
+    // This 0x46 (7-bit) shall be encoded as unsigned LEB128
+    // Not signed LEB128 (which shall be 2 bytes)
+    string expected =
+        "\x46"s;
+
+    EXPECT_EQ(os.str(), expected);
+}
+
 ////////////////////////////////////////////////
 // Tests for FlushValueChangeData_Timestamps
 ////////////////////////////////////////////////
