@@ -57,7 +57,9 @@ void ValueChangeData::KeepOnlyTheLatestValue() {
 	for (auto& v : variable_infos) {
 		v.KeepOnlyTheLatestValue();
 	}
-	timestamps.resize(0);
+	CHECK(not timestamps.empty());
+	timestamps.front() = timestamps.back();
+	timestamps.resize(1);
 }
 
 } // namespace detail
@@ -66,7 +68,7 @@ void Writer::Open(const string_view_ name) {
 	CHECK(not main_fst_file_.is_open());
 	main_fst_file_.open(string(name), ios::binary);
 	// reserve space for header, we will write it at Close(), append geometry and hierarchy at the end
-	// wave data will be flushed in between by FlushWaveDataIfNecessary_()
+	// wave data will be flushed in between
 	main_fst_file_.seekp(kSharedBlockHeaderSize + HeaderInfo::total_size, ios_base::beg);
 }
 
@@ -194,7 +196,7 @@ Handle Writer::CreateVar2(
 void Writer::EmitTimeChange(uint64_t tim) {
 	FinalizeHierarchy_();
 
-	if (value_change_data_usage_ > value_change_data_flush_threshold_) {
+	if (value_change_data_usage_ > value_change_data_flush_threshold_ or flush_pending_) {
 		FlushValueChangeData_(value_change_data_, main_fst_file_);
 	}
 
@@ -516,7 +518,7 @@ uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
 			// try to compress
 			const uint8_t* selected_data;
 			size_t selected_size;
-			if (pack_type == WriterPackType::eNoCompression or data[i].size() < 32) {
+			if (pack_type == WriterPackType::eNoCompression or data[i].size() <= 32) {
 				selected_data = data[i].data();
 				selected_size = data[i].size();
 			} else {
@@ -562,7 +564,7 @@ void detail::ValueChangeData::WriteEncodedPositions(const vector<int64_t>& encod
 			size_t run = 0;
 			while (i < n && encoded_positions[i] == 0) { ++run; ++i; }
 			// encode as signed (run << 1) | 0 and write as signed LEB128
-			h.WriteLEB128Signed(run<<1);
+			h.WriteLEB128(run<<1);
 		} else {
 			// non-zero
 			int64_t value_to_encode = 0;
@@ -603,10 +605,6 @@ void Writer::FlushValueChangeDataConstPart_(
 	ostream& os,
 	WriterPackType pack_type
 ) {
-	if (vcd.timestamps.empty()) {
-		return;
-	}
-
 	// 0. Setup
 	StreamWriteHelper h(os);
 

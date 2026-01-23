@@ -204,7 +204,7 @@ public:
 	}
 	// Flush value change data
 	inline void FlushValueChangeData() {
-		FlushValueChangeData_(value_change_data_, main_fst_file_);
+		flush_pending_ = true;
 	}
 private:
 	// File/memory buffers
@@ -223,6 +223,7 @@ private:
 	uint64_t value_change_data_usage_ = 0; // Note: this value is just an estimation
 	uint64_t value_change_data_flush_threshold_ = 128<<20; // 128MB
 	uint32_t enum_count_ = 0;
+	bool flush_pending_ = false;
 
 	// internal helpers
 	static void WriteHeader_(const Header &header, std::ostream &os);
@@ -240,9 +241,14 @@ private:
 		detail::ValueChangeData &vcd,
 		std::ostream &os
 	) {
+		if (vcd.timestamps.empty()) {
+			return;
+		}
 		FlushValueChangeDataConstPart_(vcd, os, pack_type_);
 		vcd.KeepOnlyTheLatestValue();
+		++header_.num_value_change_data_blocks;
 		value_change_data_usage_ = 0;
+		flush_pending_ = false;
 	}
 	void FinalizeHierarchy_() {
 		if (hierarchy_finalized_) return;

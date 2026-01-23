@@ -2,10 +2,11 @@
 // SPDX-FileCopyrightText: 2025-2026 Yoda Lee <lc85301@gmail.com>
 // SPDX-License-Identifier: MIT
 // direct include
-#include "VSimple.h" // Generated header for the Testbench module
+#include "VRSA_tb.h" // Generated header for the Testbench module
 // C system headers
 // C++ standard library headers
 #include <iostream>
+#include <memory>
 // Other libraries' .h files.
 #include <verilated.h>
 #include <verilated_fst_c.h> // For FST waveform tracing
@@ -18,48 +19,45 @@ int main(int argc, char **argv) {
         cout << "Usage: " << argv[0] << " <output.fst>" << endl;
         return 1;
     }
-    Verilated::commandArgs(1, argv);
+    Verilated::commandArgs(argc, argv);
 
     // Instantiate the Testbench module
-    VSimple* tb = new VSimple;
+    unique_ptr<VRSA_tb> tb(new VRSA_tb);
+    unique_ptr<VerilatedFstC> tfp(new VerilatedFstC);
 
     // Initialize simulation variables
     vluint64_t sim_time = 0;
     tb->clk = 0;
     tb->rst_n = 0;
-    VerilatedFstC* tfp = nullptr;
 
     Verilated::traceEverOn(true);
-    tfp = new VerilatedFstC;
-    tb->trace(tfp, 99);
+    tb->trace(tfp.get(), 99);
     tfp->open(argv[1]);
 
     // Deassert reset after a few cycles
     while (sim_time < 20) {
         tb->clk = !tb->clk;
         tb->eval();
-        if (tfp) tfp->dump(sim_time);
+        tfp->dump(sim_time);
         sim_time++;
     }
     tb->rst_n = 1;
 
-    // magic number, run 100 cycles
-    for (int i = 0; i < 150; i++) {
+    for (int i = 0; i < 10000; i++) {
         tb->clk = !tb->clk;
         tb->eval();
-        if (tfp) tfp->dump(sim_time);
+        tfp->dump(sim_time);
         sim_time++;
+        // this value ensures manual flush before auto-flush for THIS test
+        // so we can compare our implementation with gtkwave's block-by-block
+        if (sim_time % 4000 == 0) {
+            tfp->flush();
+        }
     }
 
     // Close trace file
-    if (tfp) {
-        tfp->close();
-        delete tfp;
-    }
-
-    // Cleanup and exit
+    tfp->close();
     tb->final();
-    delete tb;
 
     return 0;
 }

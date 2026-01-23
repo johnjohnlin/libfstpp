@@ -75,27 +75,49 @@ foreach(TEST_SRC ${FSTCPP_TEST_MAIN})
 endforeach()
 
 #######################################
-# Build the integration tests
+# Build the integration tests for testing bit-true behavior
 #######################################
-file(GLOB_RECURSE INTEGRATION_TEST_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/integration_test/*.cpp)
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/integration_test)
-add_executable(integration_test_c ${INTEGRATION_TEST_SRCS} gtkwave/fstapi.c)
-add_executable(integration_test_cpp ${INTEGRATION_TEST_SRCS} gtkwave/fstapi.cpp)
-
-target_link_libraries(integration_test_c PRIVATE fstcpp)
-target_link_libraries(integration_test_cpp PRIVATE fstcpp)
-
-add_test(NAME integration_test_cpp COMMAND integration_test_cpp dump_cpp.fst)
-add_test(NAME integration_test_c COMMAND integration_test_c dump_c.fst)
-
-# must be bit-true
-add_test(
-    NAME compare_fst_files
-    COMMAND cmake -E compare_files dump_cpp.fst dump_c.fst
+# compile verilator_shared/*.cpp as an cmake object
+file(
+    GLOB_RECURSE
+    VERILATOR_SHARED
+    ${CMAKE_CURRENT_SOURCE_DIR}/integration_test/verilator_share/*.cpp
 )
-set_tests_properties(
-    compare_fst_files
-    PROPERTIES
-    DEPENDS "integration_test_cpp;integration_test_c"
-)
+add_library(verilator_shared OBJECT ${VERILATOR_SHARED})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/integration_test/verilator_share)
+
+# for all direct folders under integration_test/tests, find all *.cpp files and compile them as an executable
+file(GLOB TEST_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/integration_test/tests/*)
+
+foreach(TEST_PATH ${TEST_PATHS})
+    get_filename_component(TEST_NAME ${TEST_PATH} NAME)
+
+    # ensure it is a directory
+    if(IS_DIRECTORY ${TEST_PATH})
+        # compile all *.cpp files in the folder as an executable
+        file(GLOB_RECURSE TEST_SRCS ${TEST_PATH}/*.cpp)
+
+        # C executable
+        add_executable(${TEST_NAME}_c ${TEST_SRCS} gtkwave/fstapi.c $<TARGET_OBJECTS:verilator_shared>)
+        target_link_libraries(${TEST_NAME}_c PRIVATE fstcpp)
+        target_include_directories(${TEST_NAME}_c PRIVATE ${TEST_PATH}/compiled)
+        add_test(NAME ${TEST_NAME}_c COMMAND ${TEST_NAME}_c ${TEST_NAME}_dump_c.fst)
+
+        # C++ executable
+        add_executable(${TEST_NAME}_cpp ${TEST_SRCS} gtkwave/fstapi.cpp $<TARGET_OBJECTS:verilator_shared>)
+        target_link_libraries(${TEST_NAME}_cpp PRIVATE fstcpp)
+        target_include_directories(${TEST_NAME}_cpp PRIVATE ${TEST_PATH}/compiled)
+        add_test(NAME ${TEST_NAME}_cpp COMMAND ${TEST_NAME}_cpp ${TEST_NAME}_dump_cpp.fst)
+
+        # must be bit-true
+        add_test(
+            NAME ${TEST_NAME}_compare
+            COMMAND ${CMAKE_COMMAND} -E compare_files ${TEST_NAME}_dump_cpp.fst ${TEST_NAME}_dump_c.fst
+        )
+        set_tests_properties(
+            ${TEST_NAME}_compare
+            PROPERTIES
+            DEPENDS "${TEST_NAME}_cpp;${TEST_NAME}_c"
+        )
+    endif()
+endforeach()
