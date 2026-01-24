@@ -655,11 +655,11 @@ void Writer::FlushValueChangeDataConstPart_(
 	// Note: We need positions for the next section
 	const auto p_tmp2 = [&,pack_type]() {
 		auto wave_data = vcd.ComputeWaveData();
-		auto positions = vcd.UniquifyWaveData(wave_data);
 		const size_t memory_usage = accumulate(
 			wave_data.begin(), wave_data.end(), size_t(0),
 			[](size_t a, const auto& b) { return a + b.size(); }
 		);
+		auto positions = vcd.UniquifyWaveData(wave_data);
 		h
 		// Note: this is not a typo, I expect we shall write count here.
 		// but the spec indeed write vcd.variable_infos.size(),
