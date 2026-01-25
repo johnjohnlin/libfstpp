@@ -228,7 +228,7 @@ template<typename... T>
 void Writer::EmitValueChangeHelper_(Handle handle, T&&... val) {
 	// Let data prefetch go first
 	auto& var_info = value_change_data_.variable_infos AT(handle - 1);
-	__builtin_prefetch(var_info.data.data() + var_info.data.size() - 1, 1, 0);
+	__builtin_prefetch(var_info.data_ptr() + var_info.size() - 1, 1, 0);
 
 	FinalizeHierarchy_();
 
@@ -251,8 +251,8 @@ void Writer::EmitValueChange(Handle handle, uint64_t val) {
 void Writer::EmitValueChange(Handle handle, const char *val) {
 	FinalizeHierarchy_();
 	auto &var_info = value_change_data_.variable_infos AT(handle - 1);
-	const uint32_t bitwidth = var_info.bitwidth;
-	CHECK_NE(bitwidth, 0);
+	const uint32_t bitwidth = var_info.bitwidth();
+	DCHECK_NE(bitwidth, 0);
 
 	val += bitwidth;
 	thread_local static vector<uint64_t> packed_value_buffer;
