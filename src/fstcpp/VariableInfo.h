@@ -87,7 +87,12 @@ public:
 			delete[] data_ptr();
 		}
 	}
-	VariableInfo(VariableInfo&&) = default;
+	VariableInfo(VariableInfo&& rhs) {
+		data = rhs.data;
+		rhs.data = nullptr;
+		misc = rhs.misc;
+		// rhs.misc = 0;
+	}
 
 	uint32_t EmitValueChange(uint64_t current_time_index, const uint64_t val);
 	uint32_t EmitValueChange(uint64_t current_time_index, const uint32_t *val, EncodingType encoding);
