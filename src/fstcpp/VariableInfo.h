@@ -35,11 +35,15 @@ class VariableInfo final {
 	// 1. 8B pointer, its size can be:
 	//   - 0 if data is nullptr
 	//   - `kCapacityBase * pow(2, capacity_log2)` if data is not nullptr
+	//   - (TODO) Always aligned to kCapacityBase (will be changed to 64B)
+	//     so we can use the LSB for capacity_log2
 	uint8_t *data = nullptr;
 	// 2. 8B misc:
-	//   - 33b size
+	//   - 33b size (TODO: maybe 32b is enough, who needs a single variable
+	//     larger than 4G in a block?)
 	//   - 6b capacity_log2 (offset by -kCapacityBaseShift)
 	//   - 12b last_written_bytes
+	//     (TODO: can be calculated from only EncodingType, which is only 2b)
 	//   - 12b bitwidth
 	//   - 1b is_real
 	uint64_t misc = 0;
@@ -75,7 +79,14 @@ public:
 	auto DispatchHelper(Callable&& callable, Args&&... args) const;
 
 	VariableInfo(uint16_t bitwidth_, bool is_real_ = false);
-	~VariableInfo() = default;
+	~VariableInfo() {
+		if (data_ptr() != nullptr) {
+			// don't delete data directly for better abstraction
+			// we might use the LSB of data in the future as LSB is
+			// always aligned to kCapacityBase
+			delete[] data_ptr();
+		}
+	}
 	VariableInfo(VariableInfo&&) = default;
 
 	uint32_t EmitValueChange(uint64_t current_time_index, const uint64_t val);
@@ -84,10 +95,11 @@ public:
 
 	void KeepOnlyTheLatestValue() {
 		const auto last_written_bytes_ = last_written_bytes();
+		const auto data_ptr_ = data_ptr();
 		std::copy_n(
-			data + size() - last_written_bytes_,
+			data_ptr_ + size() - last_written_bytes_,
 			last_written_bytes_,
-			data
+			data_ptr_
 		);
 		size(last_written_bytes_);
 	}
