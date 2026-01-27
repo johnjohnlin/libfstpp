@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025-2026 Yoda Lee <lc85301@gmail.com>
 // SPDX-License-Identifier: MIT
 // direct include
-#include "fstcpp/Writer.h"
+#include "fstcpp/fstcpp_writer.h"
 // C system headers
 // C++ standard library headers
 #include <iostream>
@@ -18,11 +18,11 @@
 #include <lz4.h>
 #include <zlib.h>
 // Your project's .h files.
-#include "fstcpp/StreamWriteHelper.h"
-#include "fstcpp/VariableInfo.h"
-#include "fstcpp/assertion.h"
-#include "fstcpp/fst.h"
-#include "fstcpp/fst_string_view.h"
+#include "fstcpp/fstcpp_stream_write_helper.h"
+#include "fstcpp/fstcpp_variable_info.h"
+#include "fstcpp/fstcpp_assertion.h"
+#include "fstcpp/fstcpp.h"
+#include "fstcpp/fstcpp_string_view.h"
 
 using namespace std;
 
