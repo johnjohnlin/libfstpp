@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025-2026 Yoda Lee <lc85301@gmail.com>
 // SPDX-License-Identifier: MIT
 // direct include
-#include "fstcpp/Writer.cpp"
+#include "fstcpp/fstcpp_writer.cpp"
 // C system headers
 // C++ standard library headers
 #include <cstring>

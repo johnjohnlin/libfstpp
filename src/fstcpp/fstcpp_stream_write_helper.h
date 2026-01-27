@@ -11,8 +11,8 @@
 #include <vector>
 // Other libraries' .h files.
 // Your project's .h files.
-#include "fstcpp/fst_file.h"
-#include "fstcpp/string_view.h"
+#include "fstcpp/fstcpp_file.h"
+#include "fstcpp/fstcpp_string_view.h"
 
 namespace fst {
 

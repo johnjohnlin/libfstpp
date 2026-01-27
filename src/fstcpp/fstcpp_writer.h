@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 // direct include
-#include "fstcpp/fst.h"
+#include "fstcpp/fstcpp.h"
 // C system headers
 // C++ standard library headers
 #include <algorithm>
@@ -14,9 +14,9 @@
 #include <vector>
 // Other libraries' .h files.
 // Your project's .h files.
-#include "fstcpp/assertion.h"
-#include "fstcpp/fst_string_view.h"
-#include "fstcpp/VariableInfo.h"
+#include "fstcpp/fstcpp_assertion.h"
+#include "fstcpp/fstcpp_string_view.h"
+#include "fstcpp/fstcpp_variable_info.h"
 
 namespace fst {
 

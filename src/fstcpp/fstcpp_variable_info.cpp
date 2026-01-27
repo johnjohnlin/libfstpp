@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Yu-Sheng Lin <johnjohnlys@gmail.com>
 // SPDX-License-Identifier: MIT
 // direct include
-#include "fstcpp/VariableInfo.h"
+#include "fstcpp/fstcpp_variable_info.h"
 // C system headers
 // C++ standard library headers
 #include <algorithm>
