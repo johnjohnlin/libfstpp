@@ -12,7 +12,7 @@
 // Other libraries' .h files.
 // Your project's .h files.
 #include "fstcpp/fstcpp_file.h"
-#include "fstcpp/fstcpp_string_view.h"
+#include "fstcpp/fstcpp.h"
 
 namespace fst {
 
@@ -124,18 +124,18 @@ struct StreamWriteHelper {
 	}
 
 	// Write the string, non-null-terminated
-	StreamWriteHelper& WriteString(const nonstd::string_view str) {
-		os->write(str.data(), str.size());
+	StreamWriteHelper& WriteString(const fst::string_view_pair str) {
+		os->write(str.first, str.second);
 		return *this;
 	}
 
 	// Write the string, null-terminated
-	StreamWriteHelper& WriteString0(const nonstd::string_view str) {
-		os->write(str.data(), str.size()).put('\0');
+	StreamWriteHelper& WriteString0(const fst::string_view_pair str) {
+		os->write(str.first, str.second).put('\0');
 		return *this;
 	}
-	StreamWriteHelper& WriteString(const std::string& str) { return WriteString0(nonstd::string_view(str)); }
-	StreamWriteHelper& WriteString(const char* str) { return WriteString0(nonstd::string_view(str)); }
+	StreamWriteHelper& WriteString(const std::string& str) { return WriteString0(fst::make_string_view_pair(str.c_str(), str.size())); }
+	StreamWriteHelper& WriteString(const char* str) { return WriteString0(fst::make_string_view_pair(str)); }
 
 	StreamWriteHelper& Write(const char* ptr, size_t size) {
 		os->write(ptr, size);
@@ -320,25 +320,25 @@ struct StreamVectorWriteHelper {
 	}
 
 	// Write the string, non-null-terminated
-	StreamVectorWriteHelper& WriteString(const nonstd::string_view str) {
-		const size_t len = str.size();
+	StreamVectorWriteHelper& WriteString(const fst::string_view_pair str) {
+		const size_t len = str.second;
 		const size_t cur = vec.size();
 		vec.resize(cur + len);
-		std::memcpy(vec.data() + cur, str.data(), len);
+		std::memcpy(vec.data() + cur, str.first, len);
 		return *this;
 	}
 
 	// Write the string, null-terminated
-	StreamVectorWriteHelper& WriteString0(const nonstd::string_view str) {
-		const size_t len = str.size();
+	StreamVectorWriteHelper& WriteString0(const fst::string_view_pair str) {
+		const size_t len = str.second;
 		const size_t cur = vec.size();
 		vec.resize(cur + len + 1);
-		std::memcpy(vec.data() + cur, str.data(), len);
+		std::memcpy(vec.data() + cur, str.first, len);
 		vec[cur + len] = '\0';
 		return *this;
 	}
-	StreamVectorWriteHelper& WriteString(const std::string& str) { return WriteString0(nonstd::string_view(str)); }
-	StreamVectorWriteHelper& WriteString(const char* str) { return WriteString0(nonstd::string_view(str)); }
+	StreamVectorWriteHelper& WriteString(const std::string& str) { return WriteString0(fst::make_string_view_pair(str.c_str(), str.size())); }
+	StreamVectorWriteHelper& WriteString(const char* str) { return WriteString0(fst::make_string_view_pair(str)); }
 };
 
 } // namespace fst
