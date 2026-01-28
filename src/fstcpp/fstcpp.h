@@ -5,7 +5,10 @@
 // direct include
 // C system headers
 // C++ standard library headers
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <utility>
 // Other libraries' .h files.
 // Your project's .h files.
 
@@ -18,6 +21,19 @@ namespace fst {
 
 typedef uint32_t Handle;
 typedef uint32_t EnumHandle;
+using string_view_pair = std::pair<const char*, std::size_t>;
+
+[[maybe_unused]]
+static inline string_view_pair make_string_view_pair(const char* data) {
+	if (not data) {
+		return {nullptr, 0};
+	}
+	return {data, std::strlen(data)};
+}
+[[maybe_unused]]
+static inline string_view_pair make_string_view_pair(const char* data, std::size_t size) {
+	return {data, size};
+}
 
 enum class WriterPackType : uint8_t {
 	eZlib = 0, // not supported
@@ -43,7 +59,12 @@ enum class EncodingType : uint8_t {
 static inline constexpr unsigned BitPerEncodedBit(EncodingType type) {
 	return 1 << static_cast<uint8_t>(type);
 }
-[[maybe_unused]] static const char* kEncodedBitToCharTable = "01xzhuwl";
+[[maybe_unused]]
+static const char* kEncodedBitToCharTable = (
+	"01" // Binary
+	"xzhu" // Verilog
+	"wl-?    " // Vhdl (padded with ' ')
+);
 
 struct Hierarchy {
 	enum ScopeType : uint8_t {

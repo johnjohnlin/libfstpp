@@ -11,7 +11,7 @@
 // Other libraries' .h files.
 // Your project's .h files.
 #include "fstcpp/fstcpp_writer.h"
-#include "fstcpp/fstcpp_string_view.h"
+// #include "fstcpp/fstcpp_string_view.h"
 
 using namespace std;
 
@@ -197,13 +197,16 @@ fstEnumHandle fstWriterCreateEnumTable(
 	const char **val_arr
 ) {
 	if (not ctx or not name or not literal_arr or not val_arr) return 0;
-	vector<pair<fst::string_view_, fst::string_view_>> literal_val_arr;
+	vector<pair<fst::string_view_pair, fst::string_view_pair>> literal_val_arr;
 	literal_val_arr.reserve(elem_count);
 	for (uint32_t i = 0; i < elem_count; ++i) {
-		literal_val_arr.emplace_back(literal_arr[i], val_arr[i]);
+		literal_val_arr.emplace_back(
+			fst::make_string_view_pair(literal_arr[i]),
+			fst::make_string_view_pair(val_arr[i])
+		);
 	}
 	return ctx->writer.CreateEnumTable(
-		name,
+		fst::make_string_view_pair(name),
 		min_valbits,
 		literal_val_arr
 	);
@@ -225,7 +228,7 @@ void fstWriterSetAttrBegin(
 	ctx->writer.SetAttrBegin(
 		static_cast<fst::Hierarchy::AttrType>(attrtype),
 		static_cast<fst::Hierarchy::AttrSubType>(subtype),
-		fst::detail::SafeStringView(attrname),
+		fst::make_string_view_pair(attrname),
 		arg
 	);
 }

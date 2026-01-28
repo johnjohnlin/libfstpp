@@ -22,7 +22,6 @@
 #include "fstcpp/fstcpp_variable_info.h"
 #include "fstcpp/fstcpp_assertion.h"
 #include "fstcpp/fstcpp.h"
-#include "fstcpp/fstcpp_string_view.h"
 
 using namespace std;
 
@@ -64,9 +63,9 @@ void ValueChangeData::KeepOnlyTheLatestValue() {
 
 } // namespace detail
 
-void Writer::Open(const string_view_ name) {
+void Writer::Open(const string_view_pair name) {
 	CHECK(not main_fst_file_.is_open());
-	main_fst_file_.open(string(name), ios::binary);
+	main_fst_file_.open(string(name.first, name.second), ios::binary);
 	// reserve space for header, we will write it at Close(), append geometry and hierarchy at the end
 	// wave data will be flushed in between
 	main_fst_file_.seekp(kSharedBlockHeaderSize + HeaderInfo::total_size, ios_base::beg);
@@ -97,7 +96,7 @@ void Writer::Close() {
 /////////////////////////////////////////
 void Writer::SetScope(
 	Hierarchy::ScopeType scopetype,
-	const string_view_ scopename, const string_view_ scopecomp
+	const string_view_pair scopename, const string_view_pair scopecomp
 ) {
 	CHECK(not hierarchy_finalized_);
 	StreamVectorWriteHelper h(hierarchy_buffer_);
@@ -118,7 +117,7 @@ void Writer::Upscope() {
 
 Handle Writer::CreateVar(
 	Hierarchy::VarType vartype, Hierarchy::VarDirection vardir,
-	uint32_t bitwidth, const string_view_ name,
+	uint32_t bitwidth, const string_view_pair name,
 	Handle alias_handle
 ) {
 	CHECK(not hierarchy_finalized_);
@@ -180,7 +179,7 @@ Handle Writer::CreateVar(
 // LCOV_EXCL_START
 Handle Writer::CreateVar2(
 	Hierarchy::VarType vartype, Hierarchy::VarDirection vardir,
-	uint32_t bitwidth, const string_view_ name, Handle alias_handle, const string_view_ type,
+	uint32_t bitwidth, const string_view_pair name, Handle alias_handle, const string_view_pair type,
 	Hierarchy::SupplementalVarType svt, Hierarchy::SupplementalDataType sdt
 ) {
 	CHECK(not hierarchy_finalized_);
@@ -465,8 +464,11 @@ vector<int64_t> detail::ValueChangeData::UniquifyWaveData(
 	vector<int64_t> positions(data.size(), 0);
 	struct MyHash {
 		size_t operator()(const vector<uint8_t>* vec) const {
-			const string_view_ sv((const char*)vec->data(), vec->size());
-			return hash<string_view_>()(sv);
+			size_t seed = 0;
+			for (auto v : *vec) {
+				seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			}
+			return seed;
 		}
 	};
 	struct MyEqual {
@@ -718,8 +720,9 @@ void Writer::FlushValueChangeDataConstPart_(
 
 namespace { // Helper functions for CreateEnumTable
 
-void AppendEscToString(const string_view_ in, string& out) {
-	for (char c : in) {
+void AppendEscToString(const string_view_pair in, string& out) {
+	for(size_t i = 0; i < in.second; ++i) {
+		const char c = in.first[i];
 		switch (c) {
 		case '\a': { out += "\\a"; break; }
 		case '\b': { out += "\\b"; break; }
@@ -753,7 +756,7 @@ void AppendEscToString(const string_view_ in, string& out) {
 
 void Writer::SetAttrBegin(
 	Hierarchy::AttrType attrtype, Hierarchy::AttrSubType subtype,
-	const string_view_ attrname, uint64_t arg
+	const string_view_pair attrname, uint64_t arg
 ) {
 	CHECK(not hierarchy_finalized_);
 
@@ -800,27 +803,22 @@ namespace {
 
 // overload for string += string_view_
 // Remove this once C++17 is required
-string& operator+=(string& lhs, const string_view_ rhs) {
-	lhs.append(rhs.data(), rhs.size());
-	return lhs;
-}
-
 } // namespace
 
 EnumHandle Writer::CreateEnumTable(
-	const string_view_ name,
+	const string_view_pair name,
 	uint32_t min_valbits,
-	const vector<pair<string_view_, string_view_>>& literal_val_arr
+	const vector<pair<string_view_pair, string_view_pair>>& literal_val_arr
 ) {
 	EnumHandle handle = 0;
 
-	if (name.empty() or literal_val_arr.empty()) {
+	if (name.second == 0 or literal_val_arr.empty()) {
 		return handle;
 	}
 
 	string attr_str;
 	attr_str.reserve(256);
-	attr_str += name;
+	attr_str.append(name.first, name.second);
 	attr_str += ' ';
 	attr_str += to_string(literal_val_arr.size());
 	attr_str += ' ';
@@ -834,8 +832,8 @@ EnumHandle Writer::CreateEnumTable(
 	for (const auto& p : literal_val_arr) {
 		const auto& val = p.second;
 		// val (with padding)
-		if (min_valbits > 0 and val.size() < min_valbits) {
-			attr_str.insert(attr_str.end(), min_valbits - val.size(), '0');
+		if (min_valbits > 0 and val.second < min_valbits) {
+			attr_str.insert(attr_str.end(), min_valbits - val.second, '0');
 		}
 		AppendEscToString(val, attr_str);
 		attr_str += ' ';
@@ -846,7 +844,7 @@ EnumHandle Writer::CreateEnumTable(
 	SetAttrBegin(
 		Hierarchy::AttrType::eMisc,
 		Hierarchy::AttrSubType::eMisc_EnumTable,
-		attr_str,
+		make_string_view_pair(attr_str.c_str(), attr_str.size()),
 		handle
 	);
 

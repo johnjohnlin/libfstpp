@@ -364,7 +364,7 @@ TEST_F(WriterTest, WriteHeader) {
     // Helper to pad strings with nulls
     auto write_padded = [&](const string &s, size_t len) {
         size_t n = min(s.size(), len);
-        if (n > 0) h.WriteString(nonstd::string_view(s.data(), n));
+        if (n > 0) h.WriteString(make_string_view_pair(s.data(), n));
         if (len > n) h.Fill<char>(0, len - n);
     };
 
