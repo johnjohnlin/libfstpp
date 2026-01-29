@@ -358,7 +358,7 @@ void fstWriterSetPackType(fstWriterContext *ctx, enum fstWriterPackType pack_typ
 		ctx->writer.SetWriterPackType(fst::WriterPackType::eLz4);
 		return;
 	}
-	UNREACHABLE;
+	FST_UNREACHABLE;
 }
 
 } // extern "C"
