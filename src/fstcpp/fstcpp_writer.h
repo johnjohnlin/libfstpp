@@ -94,7 +94,7 @@ public:
 	}
 	void SetDate(const string_view_pair date_str) {
 		const auto len = date_str.second;
-		CHECK_EQ(len, sizeof(header_.date)-1);
+		FST_CHECK_EQ(len, sizeof(header_.date)-1);
 		std::copy_n(date_str.first, len, header_.date);
 		header_.date[len] = '\0';
 	}
@@ -125,7 +125,7 @@ public:
 		SetAttrBegin(Hierarchy::AttrType::eMisc, Hierarchy::AttrSubType::eMisc_EnumTable, make_string_view_pair(nullptr, 0), handle);
 	}
 	inline void SetWriterPackType(WriterPackType pack_type) {
-		CHECK(
+		FST_CHECK(
 			pack_type != WriterPackType::eZlib and
 			pack_type != WriterPackType::eFastLz
 		);
@@ -185,7 +185,7 @@ public:
 		uint32_t bitwidth, const char* name,
 		uint32_t alias_handle
 	) {
-		CHECK_NE(name, static_cast<void*>(nullptr));
+		FST_CHECK_NE(name, static_cast<void*>(nullptr));
 		return CreateVar(vartype, vardir, bitwidth, make_string_view_pair(name), alias_handle);
 	}
 	inline Handle CreateVar(

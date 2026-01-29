@@ -265,7 +265,7 @@ public:
 	}
 
 	void DumpInitialBits(std::vector<uint8_t> &buf) const {
-		DCHECK_GT(info.size(), kEmitTimeIndexAndEncodingSize);
+		FST_DCHECK_GT(info.size(), kEmitTimeIndexAndEncodingSize);
 		EmitReaderHelper rh(info.data_ptr());
 		StreamVectorWriteHelper wh(buf);
 		(void)rh.ReadTimeIndexAndEncoding();
@@ -283,7 +283,7 @@ public:
 
 		while (true) {
 			if (rh.ptr == tail) break;
-			CHECK_GT(tail, rh.ptr);
+			FST_CHECK_GT(tail, rh.ptr);
 			const auto time_index = rh.Read<uint64_t>();
 			const auto enc = rh.Read<EncodingType>();
 			const auto num_byte = sizeof(double);
@@ -291,7 +291,7 @@ public:
 				// Note: [0] is initial value, which is already dumped in DumpInitialBits()
 				first = false;
 			} else {
-				CHECK(enc == EncodingType::eBinary);
+				FST_CHECK(enc == EncodingType::eBinary);
 				const uint64_t delta_time_index = time_index - prev_time_index;
 				prev_time_index = time_index;
 				wh
@@ -383,7 +383,7 @@ public:
 
 	void DumpInitialBits(std::vector<uint8_t> &buf) const {
 		// FST requires initial bits present
-		DCHECK_GT(info.size(), kEmitTimeIndexAndEncodingSize);
+		FST_DCHECK_GT(info.size(), kEmitTimeIndexAndEncodingSize);
 		EmitReaderHelper rh(info.data_ptr());
 		const auto time_index_enc = rh.ReadTimeIndexAndEncoding();
 		const auto enc = time_index_enc.second;
@@ -441,7 +441,7 @@ public:
 				if (rh.ptr == tail) {
 					break;
 				}
-				DCHECK_GT(tail, rh.ptr);
+				FST_DCHECK_GT(tail, rh.ptr);
 				const auto time_index = rh.Read<uint64_t>();
 				const auto enc = rh.Read<EncodingType>();
 				const auto num_element = BitPerEncodedBit(enc);
@@ -481,7 +481,7 @@ public:
 				if (rh.ptr == tail) {
 					break;
 				}
-				CHECK_GT(tail, rh.ptr);
+				FST_CHECK_GT(tail, rh.ptr);
 				const auto time_index = rh.Read<uint64_t>();
 				const auto enc = rh.Read<EncodingType>();
 				const auto num_element = BitPerEncodedBit(enc);
@@ -489,7 +489,7 @@ public:
 				if (first) {
 					first = false;
 				} else {
-					CHECK(enc == EncodingType::eBinary); // TODO
+					FST_CHECK(enc == EncodingType::eBinary); // TODO
 					const bool has_non_binary = enc != EncodingType::eBinary;
 					const uint64_t delta_time_index = time_index - prev_time_index;
 					prev_time_index = time_index;
@@ -592,7 +592,7 @@ public:
 	}
 
 	void DumpInitialBits(std::vector<uint8_t> &buf) const {
-		DCHECK_GT(info.size(), kEmitTimeIndexAndEncodingSize);
+		FST_DCHECK_GT(info.size(), kEmitTimeIndexAndEncodingSize);
 		EmitReaderHelper rh(info.data_ptr());
 		const auto time_index_enc = rh.ReadTimeIndexAndEncoding();
 		const auto enc = time_index_enc.second;
@@ -659,7 +659,7 @@ public:
 
 		while (true) {
 			if (rh.ptr == tail) break;
-			DCHECK_GT(tail, rh.ptr);
+			FST_DCHECK_GT(tail, rh.ptr);
 			const auto time_index = rh.Read<uint64_t>();
 			const auto enc = rh.Read<EncodingType>();
 			const auto num_element = BitPerEncodedBit(enc);
@@ -668,7 +668,7 @@ public:
 				// Note: [0] is initial value, which is already dumped in DumpInitialBits()
 				first = false;
 			} else {
-				CHECK(enc == EncodingType::eBinary); // TODO
+				FST_CHECK(enc == EncodingType::eBinary); // TODO
 				const bool has_non_binary = enc != EncodingType::eBinary;
 				const uint64_t delta_time_index = time_index - prev_time_index;
 				prev_time_index = time_index;

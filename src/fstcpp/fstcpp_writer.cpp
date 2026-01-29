@@ -56,7 +56,7 @@ void ValueChangeData::KeepOnlyTheLatestValue() {
 	for (auto& v : variable_infos) {
 		v.KeepOnlyTheLatestValue();
 	}
-	CHECK(not timestamps.empty());
+	FST_CHECK(not timestamps.empty());
 	timestamps.front() = timestamps.back();
 	timestamps.resize(1);
 }
@@ -64,7 +64,7 @@ void ValueChangeData::KeepOnlyTheLatestValue() {
 } // namespace detail
 
 void Writer::Open(const string_view_pair name) {
-	CHECK(not main_fst_file_.is_open());
+	FST_CHECK(not main_fst_file_.is_open());
 	main_fst_file_.open(string(name.first, name.second), ios::binary);
 	// reserve space for header, we will write it at Close(), append geometry and hierarchy at the end
 	// wave data will be flushed in between
@@ -98,7 +98,7 @@ void Writer::SetScope(
 	Hierarchy::ScopeType scopetype,
 	const string_view_pair scopename, const string_view_pair scopecomp
 ) {
-	CHECK(not hierarchy_finalized_);
+	FST_CHECK(not hierarchy_finalized_);
 	StreamVectorWriteHelper h(hierarchy_buffer_);
 	h
 	.WriteUIntBE<uint8_t>(Hierarchy::ScopeControlType::eVcdScope)
@@ -109,7 +109,7 @@ void Writer::SetScope(
 }
 
 void Writer::Upscope() {
-	CHECK(not hierarchy_finalized_);
+	FST_CHECK(not hierarchy_finalized_);
 	// TODO: shall we inline it?
 	StreamVectorWriteHelper h(hierarchy_buffer_);
 	h.WriteUIntBE<uint8_t>(Hierarchy::ScopeControlType::eVcdUpscope);
@@ -120,7 +120,7 @@ Handle Writer::CreateVar(
 	uint32_t bitwidth, const string_view_pair name,
 	Handle alias_handle
 ) {
-	CHECK(not hierarchy_finalized_);
+	FST_CHECK(not hierarchy_finalized_);
 	// Write hierarchy entry: type, direction, name, length, alias
 	StreamVectorWriteHelper h(hierarchy_buffer_);
 
@@ -182,7 +182,7 @@ Handle Writer::CreateVar2(
 	uint32_t bitwidth, const string_view_pair name, Handle alias_handle, const string_view_pair type,
 	Hierarchy::SupplementalVarType svt, Hierarchy::SupplementalDataType sdt
 ) {
-	CHECK(not hierarchy_finalized_);
+	FST_CHECK(not hierarchy_finalized_);
 	(void)vartype; (void)vardir; (void)bitwidth; (void)name; (void)alias_handle; (void)type; (void)svt; (void)sdt;
 	throw runtime_error("TODO");
 	return 0;
@@ -210,7 +210,7 @@ void Writer::EmitTimeChange(uint64_t tim) {
 
 void Writer::EmitDumpActive(bool enable) {
 	// TODO: this API is not fully understood, need to check
-	CHECK(not value_change_data_.timestamps.empty());
+	FST_CHECK(not value_change_data_.timestamps.empty());
 	blackout_data_.EmitDumpActive(value_change_data_.timestamps.back(), enable);
 }
 
@@ -251,7 +251,7 @@ void Writer::EmitValueChange(Handle handle, const char *val) {
 	FinalizeHierarchy_();
 	auto &var_info = value_change_data_.variable_infos AT(handle - 1);
 	const uint32_t bitwidth = var_info.bitwidth();
-	DCHECK_NE(bitwidth, 0);
+	FST_DCHECK_NE(bitwidth, 0);
 
 	val += bitwidth;
 	thread_local static vector<uint64_t> packed_value_buffer;
@@ -302,7 +302,7 @@ void Writer::WriteHeader_(const Header& header, ostream& os) {
 	.WriteUInt(static_cast<uint8_t>(header.filetype))
 	.WriteUInt(header.timezero);
 
-	DCHECK_EQ(os.tellp(), HeaderInfo::total_size + kSharedBlockHeaderSize);
+	FST_DCHECK_EQ(os.tellp(), HeaderInfo::total_size + kSharedBlockHeaderSize);
 };
 
 namespace { // compression helpers
@@ -758,7 +758,7 @@ void Writer::SetAttrBegin(
 	Hierarchy::AttrType attrtype, Hierarchy::AttrSubType subtype,
 	const string_view_pair attrname, uint64_t arg
 ) {
-	CHECK(not hierarchy_finalized_);
+	FST_CHECK(not hierarchy_finalized_);
 
 	StreamVectorWriteHelper h(hierarchy_buffer_);
 
