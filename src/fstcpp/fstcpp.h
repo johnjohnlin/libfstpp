@@ -21,23 +21,23 @@ namespace fst {
 
 typedef uint32_t Handle;
 typedef uint32_t EnumHandle;
-using string_view_pair = std::pair<const char*, std::size_t>;
+using string_view_pair = std::pair<const char *, std::size_t>;
 
 [[maybe_unused]]
-static inline string_view_pair make_string_view_pair(const char* data) {
+static inline string_view_pair make_string_view_pair(const char *data) {
 	if (not data) {
 		return {nullptr, 0};
 	}
 	return {data, std::strlen(data)};
 }
 [[maybe_unused]]
-static inline string_view_pair make_string_view_pair(const char* data, std::size_t size) {
+static inline string_view_pair make_string_view_pair(const char *data, std::size_t size) {
 	return {data, size};
 }
 
 enum class WriterPackType : uint8_t {
-	eZlib = 0, // not supported
-	eFastLz = 1, // not supported
+	eZlib = 0,    // not supported
+	eFastLz = 1,  // not supported
 	eLz4 = 2,
 	// usually for testing, you should use eLz4
 	// This will turn off compression for geometry/hierarchy/wave data
@@ -51,9 +51,9 @@ enum class FileType : uint8_t {
 };
 
 enum class EncodingType : uint8_t {
-	eBinary = 0, // 1 bit per bit to represent 0,1
-	eVerilog = 1, // 2 bits per bit to represent X,Z
-	eVhdl = 2, // 4 bits per bit to represent H,U,W,L,-,?
+	eBinary = 0,   // 1 bit per bit to represent 0,1
+	eVerilog = 1,  // 2 bits per bit to represent X,Z
+	eVhdl = 2,     // 4 bits per bit to represent H,U,W,L,-,?
 };
 [[maybe_unused]]
 static inline constexpr unsigned BitPerEncodedBit(EncodingType type) {
@@ -205,28 +205,27 @@ struct Hierarchy {
 		ePack_Max = 3,
 	};
 
-	enum SupplementalVarType : uint8_t {
-	};
+	enum SupplementalVarType : uint8_t {};
 
-	enum SupplementalDataType : uint8_t {
-	};
+	enum SupplementalDataType : uint8_t {};
 };
 
 struct Header {
 	uint64_t start_time = uint64_t(-1);
 	uint64_t end_time = 0;
 	int64_t timezero = 0;
-	uint64_t writer_memory_use = 1ull << 27; // Match the original fstapi.c. Just for information, not used in FST.
+	// Match the original fstapi.c. Just for information, not used in FST.
+	uint64_t writer_memory_use = 1ull << 27;
 	uint64_t num_scopes = 0;
-	uint64_t num_vars = 0; // #CreateVar calls, including aliases
-	uint64_t num_handles = 0; // #unique handles, excluding aliases, shall be <= num_vars
+	uint64_t num_vars = 0;     // #CreateVar calls, including aliases
+	uint64_t num_handles = 0;  // #unique handles, excluding aliases, shall be <= num_vars
 	uint64_t num_value_change_data_blocks = 0;
-	char writer[128] {};
-	char date[26] {};
+	char writer[128]{};
+	char date[26]{};
 	FileType filetype = FileType::eVerilog;
 	int8_t timescale = -9;
 };
 
 static constexpr uint64_t kInvalidTime = uint64_t(-1);
 
-} // namespace fst
+}  // namespace fst
