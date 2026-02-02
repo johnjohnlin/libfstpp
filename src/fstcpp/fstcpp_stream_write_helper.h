@@ -326,20 +326,26 @@ struct StreamVectorWriteHelper {
 
 	// Write the string, non-null-terminated
 	StreamVectorWriteHelper &WriteString(const fst::string_view_pair str) {
-		const size_t len = str.second;
-		const size_t cur = vec.size();
-		vec.resize(cur + len);
-		std::memcpy(vec.data() + cur, str.first, len);
+		if (str.second != 0) {
+			const size_t len = str.second;
+			const size_t cur = vec.size();
+			vec.resize(cur + len);
+			std::memcpy(vec.data() + cur, str.first, len);
+		}
 		return *this;
 	}
 
 	// Write the string, null-terminated
 	StreamVectorWriteHelper &WriteString0(const fst::string_view_pair str) {
-		const size_t len = str.second;
-		const size_t cur = vec.size();
-		vec.resize(cur + len + 1);
-		std::memcpy(vec.data() + cur, str.first, len);
-		vec[cur + len] = '\0';
+		if (str.second != 0) {
+			const size_t len = str.second;
+			const size_t cur = vec.size();
+			vec.resize(cur + len + 1);
+			std::memcpy(vec.data() + cur, str.first, len);
+			vec[cur + len] = '\0';
+		} else {
+			vec.push_back('\0');
+		}
 		return *this;
 	}
 	StreamVectorWriteHelper &WriteString(const std::string &str) {
