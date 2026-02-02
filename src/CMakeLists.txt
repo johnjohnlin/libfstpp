@@ -121,3 +121,71 @@ foreach(TEST_PATH ${TEST_PATHS})
         )
     endif()
 endforeach()
+
+#######################################
+# Lint
+#######################################
+file(GLOB LINT_HEADER "fstcpp/*.h")
+file(GLOB LINT_CPP "fstcpp/*.cpp")
+list(FILTER LINT_CPP EXCLUDE REGEX ".*\\.test\\.cpp$")
+set(CLANG_TIDY_FLAGS
+    "-config={}"
+    "-checks=-fuchsia-*,-cppcoreguidelines-avoid-c-arrays,-cppcoreguidelines-init-variables,-cppcoreguidelines-avoid-goto,-modernize-avoid-c-arrays,-readability-magic-numbers,-readability-simplify-boolean-expr,-cppcoreguidelines-macro-usage"
+)
+set(CPPCHECK_FLAGS
+    "-I${CMAKE_CURRENT_SOURCE_DIR}"
+    "--enable=all"
+    "--inline-suppr"
+)
+
+set(CLANG_TIDY_TARGETS "")
+set(CPPCHECK_TARGETS "")
+
+# add to both clang-tidy and cppcheck
+foreach(FILE ${LINT_CPP})
+    # Extract a valid TARGET_NAME
+    get_filename_component(FILENAME ${FILE} NAME)
+    string(MAKE_C_IDENTIFIER ${FILENAME} TARGET_NAME)
+
+    add_custom_target(clang_tidy_${TARGET_NAME}
+        COMMAND ${CLANG_TIDY}
+            ${CLANG_TIDY_FLAGS}
+            ${FILE}
+            --
+            -x c++
+            -I ${CMAKE_CURRENT_SOURCE_DIR}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        VERBATIM
+    )
+    add_custom_target(cppcheck_${TARGET_NAME}
+        COMMAND ${CPPCHECK}
+            ${CPPCHECK_FLAGS}
+            ${FILE}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        VERBATIM
+    )
+    list(APPEND CLANG_TIDY_TARGETS clang_tidy_${TARGET_NAME})
+    list(APPEND CPPCHECK_TARGETS cppcheck_${TARGET_NAME})
+endforeach()
+
+# add to clang-tidy
+foreach(FILE ${LINT_HEADER})
+    # Extract a valid TARGET_NAME
+    get_filename_component(FILENAME ${FILE} NAME)
+    string(MAKE_C_IDENTIFIER ${FILENAME} TARGET_NAME)
+
+    add_custom_target(clang_tidy_${TARGET_NAME}
+        COMMAND ${CLANG_TIDY}
+            ${CLANG_TIDY_FLAGS}
+            ${FILE}
+            --
+            -x c++-header
+            -I ${CMAKE_CURRENT_SOURCE_DIR}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        VERBATIM
+    )
+    list(APPEND CLANG_TIDY_TARGETS clang_tidy_${TARGET_NAME})
+endforeach()
+
+add_custom_target(clang-tidy DEPENDS ${CLANG_TIDY_TARGETS})
+add_custom_target(cppcheck DEPENDS ${CPPCHECK_TARGETS})
