@@ -25,17 +25,17 @@ namespace fst {
 // FST_BL_SKIP = 255
 enum class BlockType : uint8_t {
 	Header = 0,
-	WaveDataVersion1 = 1, // not implemented
+	WaveDataVersion1 = 1,  // not implemented
 	Blackout = 2,
 	Geometry = 3,
-	HierarchyGzCompressed = 4, // not implemented
-	WaveDataVersion2 = 5, // not implemented
+	HierarchyGzCompressed = 4,  // not implemented
+	WaveDataVersion2 = 5,       // not implemented
 	HierarchyLz4Compressed = 6,
-	HierarchyLz4CompressedTwice = 7, // not implemented
+	HierarchyLz4CompressedTwice = 7,  // not implemented
 	WaveDataVersion3 = 8,
 
-	ZWrapper = 254, // not implemented
-	Skip = 255 // not implemented
+	ZWrapper = 254,  // not implemented
+	Skip = 255       // not implemented
 };
 
 constexpr unsigned kSharedBlockHeaderSize = 1 /* BlockType */ + 8 /* size (u64) */;
@@ -78,4 +78,4 @@ struct HeaderInfo {
 	static_assert(total_size == 321, "Total size of HeaderInfo must be 321 bytes");
 };
 
-} // namespace fst
+}  // namespace fst
