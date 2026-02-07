@@ -19,41 +19,41 @@ using namespace std;
 
 namespace fst {
 
-// This test focus on testing the emit functions of writer
+// This test focus on testing the emit functions of Writer
 // The name of this test is not unique
 // but it is not a problem since Writer_*.test.cpp are individual
 // binary files
 class WriterTest : public ::testing::Test {
 protected:
-	// For testing Set(Up)Scope/CreateVar
-	// We call writer API and get the buffer content
-	// without inspecting the internal state of writer
-	static const string GetHierarchyBuffer(Writer &writer) {
+	// For testing set(Up)Scope/createVar
+	// We call Writer API and get the buffer content
+	// without inspecting the internal state of Writer
+	static const string GetHierarchyBuffer(Writer &Writer) {
 		return string(
-			reinterpret_cast<char *>(writer.hierarchy_buffer_.data()),
-			writer.hierarchy_buffer_.size()
+			reinterpret_cast<char *>(Writer.hierarchy_buffer_.data()),
+			Writer.hierarchy_buffer_.size()
 		);
 	}
 
-	static const string GetGeometryBuffer(Writer &writer) {
+	static const string GetGeometryBuffer(Writer &Writer) {
 		return string(
-			reinterpret_cast<char *>(writer.geometry_buffer_.data()), writer.geometry_buffer_.size()
+			reinterpret_cast<char *>(Writer.geometry_buffer_.data()), Writer.geometry_buffer_.size()
 		);
 	}
 
-	static void WriteHeader(const Header &h, ostream &os) { Writer::WriteHeader_(h, os); }
+	static void writeHeader(const Header &h, ostream &os) { Writer::writeHeader_(h, os); }
 
-	static void AppendBlackout(Writer &writer, std::ostream &os) { writer.AppendBlackout_(os); }
+	static void appendBlackout(Writer &Writer, std::ostream &os) { Writer.appendBlackout_(os); }
 };
 
-TEST_F(WriterTest, CreateVar) {
-	Writer writer;
-	writer.SetWriterPackType(WriterPackType::eNoCompression);
-	// Call CreateVar
+TEST_F(WriterTest, createVar) {
+	Writer Writer;
+	Writer.setWriterPackType(WriterPackType::NO_COMPRESSION);
+	// Call createVar
 	EXPECT_EQ(
-		writer.CreateVar(
-			fst::Hierarchy::VarType::eVcdWire,
-			fst::Hierarchy::VarDirection::eInput,
+		Writer.createVar(
+			fst::Hierarchy::VarType::VCD_WIRE,
+			fst::Hierarchy::VarDirection::INPUT,
 			/*bitwidth =*/8,
 			"valid",
 			/*alias handle =*/0
@@ -61,11 +61,11 @@ TEST_F(WriterTest, CreateVar) {
 		1u
 	);
 
-	// Second Call CreateVar
+	// Second Call createVar
 	EXPECT_EQ(
-		writer.CreateVar(
-			fst::Hierarchy::VarType::eVcdPort,
-			fst::Hierarchy::VarDirection::eOutput,
+		Writer.createVar(
+			fst::Hierarchy::VarType::VCD_PORT,
+			fst::Hierarchy::VarDirection::OUTPUT,
 			/*bitwidth =*/5566,
 			"ready",
 			/*alias handle =*/0
@@ -74,7 +74,7 @@ TEST_F(WriterTest, CreateVar) {
 	);
 
 	// Get the hierarchy buffer content
-	string buf = GetHierarchyBuffer(writer);
+	string buf = GetHierarchyBuffer(Writer);
 	// expected: Type, Direction, Name, bitwidth, Alias Handle
 	// FIXME: in fstapi.c:2598 it writes len, zero, zero for normal variable this may be a bug
 	string expected =
@@ -83,14 +83,14 @@ TEST_F(WriterTest, CreateVar) {
 	EXPECT_EQ(buf, expected);
 }
 
-TEST_F(WriterTest, CreateVarAlias) {
-	Writer writer;
-	writer.SetWriterPackType(WriterPackType::eNoCompression);
-	// Call CreateVar
+TEST_F(WriterTest, createVarAlias) {
+	Writer Writer;
+	Writer.setWriterPackType(WriterPackType::NO_COMPRESSION);
+	// Call createVar
 	EXPECT_EQ(
-		writer.CreateVar(
-			fst::Hierarchy::VarType::eVcdWire,
-			fst::Hierarchy::VarDirection::eInput,
+		Writer.createVar(
+			fst::Hierarchy::VarType::VCD_WIRE,
+			fst::Hierarchy::VarDirection::INPUT,
 			/*bitwidth =*/1,
 			"clk",
 			/*alias handle =*/0
@@ -98,11 +98,11 @@ TEST_F(WriterTest, CreateVarAlias) {
 		1u
 	);
 
-	// Second Call CreateVar
+	// Second Call createVar
 	EXPECT_EQ(
-		writer.CreateVar(
-			fst::Hierarchy::VarType::eVcdPort,
-			fst::Hierarchy::VarDirection::eOutput,
+		Writer.createVar(
+			fst::Hierarchy::VarType::VCD_PORT,
+			fst::Hierarchy::VarDirection::OUTPUT,
 			/*bitwidth =*/0xd,  // don't care
 			"aliasclk",
 			/*alias handle =*/1
@@ -111,7 +111,7 @@ TEST_F(WriterTest, CreateVarAlias) {
 	);
 
 	// Get the hierarchy buffer content
-	string buf = GetHierarchyBuffer(writer);
+	string buf = GetHierarchyBuffer(Writer);
 	// expected: Type, Direction, Name, bitwidth, Alias Handle
 	// FIXME: in fstapi.c:2598 it writes len, zero, zero for normal variable this may be a bug
 	string expected =
@@ -122,14 +122,14 @@ TEST_F(WriterTest, CreateVarAlias) {
 	EXPECT_EQ(buf, expected);
 }
 
-TEST_F(WriterTest, CreateAliasOutOfRange) {
-	Writer writer;
-	writer.SetWriterPackType(WriterPackType::eNoCompression);
-	// Call CreateVar
+TEST_F(WriterTest, createAliasOutOfRange) {
+	Writer Writer;
+	Writer.setWriterPackType(WriterPackType::NO_COMPRESSION);
+	// Call createVar
 	EXPECT_EQ(
-		writer.CreateVar(
-			fst::Hierarchy::VarType::eVcdWire,
-			fst::Hierarchy::VarDirection::eInput,
+		Writer.createVar(
+			fst::Hierarchy::VarType::VCD_WIRE,
+			fst::Hierarchy::VarDirection::INPUT,
 			/*bitwidth =*/16,
 			"mode",
 			/*alias handle =*/0
@@ -138,7 +138,7 @@ TEST_F(WriterTest, CreateAliasOutOfRange) {
 	);
 
 	// Get the hierarchy buffer content
-	string buf = GetHierarchyBuffer(writer);
+	string buf = GetHierarchyBuffer(Writer);
 	// expected: Type, Direction, Name, bitwidth, Alias Handle
 	// FIXME: in fstapi.c:2598 it writes len, zero, zero for normal variable this may be a bug
 	string expected = "\x10\x01mode\x00\x10\x00"s;
@@ -146,18 +146,18 @@ TEST_F(WriterTest, CreateAliasOutOfRange) {
 }
 
 TEST_F(WriterTest, Scope) {
-	Writer writer;
-	writer.SetWriterPackType(WriterPackType::eNoCompression);
-	// Set Scope
-	writer.SetScope(
-		fst::Hierarchy::ScopeType::eVcdModule,
+	Writer Writer;
+	Writer.setWriterPackType(WriterPackType::NO_COMPRESSION);
+	// set Scope
+	Writer.setScope(
+		fst::Hierarchy::ScopeType::VCD_MODULE,
 		"top",
 		"component"
 	);  // TODO: what is this?
-	writer.Upscope();
+	Writer.upscope();
 
 	// Get the hierarchy buffer content
-	string buf = GetHierarchyBuffer(writer);
+	string buf = GetHierarchyBuffer(Writer);
 	// expected: Scope Type, Name, component, Upscope
 	string expected =
 		"\xfe\x00top\x00"
@@ -166,17 +166,17 @@ TEST_F(WriterTest, Scope) {
 	EXPECT_EQ(buf, expected);
 }
 
-TEST_F(WriterTest, CreateEnumTable_NoEscape_Padding) {
-	Writer writer;
-	writer.SetWriterPackType(WriterPackType::eNoCompression);
-	// Call CreateEnumTable
-	writer.CreateEnumTable(
+TEST_F(WriterTest, createEnumTable_NoEscape_Padding) {
+	Writer Writer;
+	Writer.setWriterPackType(WriterPackType::NO_COMPRESSION);
+	// Call createEnumTable
+	Writer.createEnumTable(
 		"E1 Hello World",
 		3,  // test padding
 		{{"A", "0"}, {"B", "001"}, {"C", "1101"}}
 	);
 	// Get the hierarchy buffer content
-	string buf = GetHierarchyBuffer(writer);
+	string buf = GetHierarchyBuffer(Writer);
 	string expected = (
 		// AttrBegin->Misc->EnumTable
 		"\xfc\x00\x07"
@@ -194,10 +194,10 @@ TEST_F(WriterTest, CreateEnumTable_NoEscape_Padding) {
 	EXPECT_EQ(buf, expected);
 }
 
-TEST_F(WriterTest, CreateEnumTable_Escape_NoPadding) {
-	Writer writer;
-	writer.SetWriterPackType(WriterPackType::eNoCompression);
-	writer.CreateEnumTable(
+TEST_F(WriterTest, createEnumTable_Escape_NoPadding) {
+	Writer Writer;
+	Writer.setWriterPackType(WriterPackType::NO_COMPRESSION);
+	Writer.createEnumTable(
 		"E2.hello.world",  // test escape
 		0,                 // test no padding
 		{
@@ -217,7 +217,7 @@ TEST_F(WriterTest, CreateEnumTable_Escape_NoPadding) {
 	);
 
 	// Get the hierarchy buffer content
-	string buf = GetHierarchyBuffer(writer);
+	string buf = GetHierarchyBuffer(Writer);
 	string expected = (
 		// AttrBegin->Misc->EnumTable
 		"\xfc\x00\x07"
@@ -236,11 +236,11 @@ TEST_F(WriterTest, CreateEnumTable_Escape_NoPadding) {
 	EXPECT_EQ(buf, expected);
 }
 
-TEST_F(WriterTest, CreateEnumTableRef) {
-	Writer writer;
-	writer.SetWriterPackType(WriterPackType::eNoCompression);
-	writer.EmitEnumTableRef((0x12 << 7) | 0x34);
-	string buf = GetHierarchyBuffer(writer);
+TEST_F(WriterTest, createEnumTableRef) {
+	Writer Writer;
+	Writer.setWriterPackType(WriterPackType::NO_COMPRESSION);
+	Writer.emitEnumTableRef((0x12 << 7) | 0x34);
+	string buf = GetHierarchyBuffer(Writer);
 	string expected = (
 		// AttrBegin->Misc->EnumTableRef
 		"\xFC\x00\x07"
@@ -252,14 +252,14 @@ TEST_F(WriterTest, CreateEnumTableRef) {
 	EXPECT_EQ(buf, expected);
 }
 
-TEST_F(WriterTest, CreateVarVcdReal) {
-	Writer writer;
-	writer.SetWriterPackType(WriterPackType::eNoCompression);
-	// Call CreateVar with eVcdReal
+TEST_F(WriterTest, createVarVcdReal) {
+	Writer Writer;
+	Writer.setWriterPackType(WriterPackType::NO_COMPRESSION);
+	// Call createVar with eVcdReal
 	EXPECT_EQ(
-		writer.CreateVar(
-			fst::Hierarchy::VarType::eVcdReal,
-			fst::Hierarchy::VarDirection::eInput,
+		Writer.createVar(
+			fst::Hierarchy::VarType::VCD_REAL,
+			fst::Hierarchy::VarDirection::INPUT,
 			/*bitwidth =*/0,  // bitwidth is ignored for real
 			"real_val",
 			/*alias handle =*/0
@@ -268,7 +268,7 @@ TEST_F(WriterTest, CreateVarVcdReal) {
 	);
 
 	// Get the hierarchy buffer content
-	string buf = GetHierarchyBuffer(writer);
+	string buf = GetHierarchyBuffer(Writer);
 	// For eVcdReal, bitwidth should be encoded as 8 bytes (64 bits)
 	// Type: 0x1a, Direction: 0x01, Name: "real_val", bitwidth: 0x08,  Alias: 0x00
 	string expected = "\x03\x01real_val\x00\x08\x00"s;
@@ -276,55 +276,55 @@ TEST_F(WriterTest, CreateVarVcdReal) {
 }
 
 TEST_F(WriterTest, GeometryBufferNormalVar) {
-	Writer writer;
-	writer.SetWriterPackType(WriterPackType::eNoCompression);
+	Writer Writer;
+	Writer.setWriterPackType(WriterPackType::NO_COMPRESSION);
 	EXPECT_EQ(
-		writer.CreateVar(
-			fst::Hierarchy::VarType::eVcdWire,
-			fst::Hierarchy::VarDirection::eInput,
+		Writer.createVar(
+			fst::Hierarchy::VarType::VCD_WIRE,
+			fst::Hierarchy::VarDirection::INPUT,
 			/*bitwidth =*/15,
 			"data",
 			/*alias handle =*/0
 		),
 		1u
 	);
-	string buf = GetGeometryBuffer(writer);
+	string buf = GetGeometryBuffer(Writer);
 	string expected = "\x0f"s;
 	EXPECT_EQ(buf, expected);
 }
 
 TEST_F(WriterTest, GeometryBufferRealVar) {
-	Writer writer;
-	writer.SetWriterPackType(WriterPackType::eNoCompression);
+	Writer Writer;
+	Writer.setWriterPackType(WriterPackType::NO_COMPRESSION);
 	EXPECT_EQ(
-		writer.CreateVar(
-			fst::Hierarchy::VarType::eVcdReal,
-			fst::Hierarchy::VarDirection::eInput,
+		Writer.createVar(
+			fst::Hierarchy::VarType::VCD_REAL,
+			fst::Hierarchy::VarDirection::INPUT,
 			/*bitwidth =*/0,
 			"real_data",
 			/*alias handle =*/0
 		),
 		1u
 	);
-	string buf = GetGeometryBuffer(writer);
+	string buf = GetGeometryBuffer(Writer);
 	string expected = "\x00"s;
 	EXPECT_EQ(buf, expected);
 }
 
 TEST_F(WriterTest, GeometryBufferZerobitwidthVar) {
-	Writer writer;
-	writer.SetWriterPackType(WriterPackType::eNoCompression);
+	Writer Writer;
+	Writer.setWriterPackType(WriterPackType::NO_COMPRESSION);
 	EXPECT_EQ(
-		writer.CreateVar(
-			fst::Hierarchy::VarType::eVcdWire,
-			fst::Hierarchy::VarDirection::eInput,
+		Writer.createVar(
+			fst::Hierarchy::VarType::VCD_WIRE,
+			fst::Hierarchy::VarDirection::INPUT,
 			/*bitwidth =*/0,
 			"zero",
 			/*alias handle =*/0
 		),
 		1u
 	);
-	string buf = GetGeometryBuffer(writer);
+	string buf = GetGeometryBuffer(Writer);
 	// leb128 encoding of 0xffffffff
 	string expected = "\xFF\xFF\xFF\xFF\x0F"s;
 	EXPECT_EQ(buf, expected);
@@ -333,22 +333,22 @@ TEST_F(WriterTest, GeometryBufferZerobitwidthVar) {
 ////////////////////////////////////////////////
 // Tests for Blackout
 ////////////////////////////////////////////////
-TEST_F(WriterTest, WriteBlackout_Short) {
-	Writer writer;
-	writer.SetWriterPackType(WriterPackType::eNoCompression);
+TEST_F(WriterTest, writeBlackout_Short) {
+	Writer Writer;
+	Writer.setWriterPackType(WriterPackType::NO_COMPRESSION);
 	// 1. Blackout between 10 to 20
-	writer.EmitTimeChange(10);
-	writer.EmitDumpActive(false);
-	writer.EmitTimeChange(20);
-	writer.EmitDumpActive(true);
+	Writer.emitTimeChange(10);
+	Writer.emitDumpActive(false);
+	Writer.emitTimeChange(20);
+	Writer.emitDumpActive(true);
 	// Check output
 	std::string ss(9, '\0');  // need some buffer to allow AppendBlackout to seek
 	std::stringstream os(ss);
-	AppendBlackout(writer, os);
+	appendBlackout(Writer, os);
 	std::string out = os.str();
 
 	// Verify block type and size
-	EXPECT_EQ(static_cast<uint8_t>(out[0]), static_cast<uint8_t>(BlockType::Blackout));
+	EXPECT_EQ(static_cast<uint8_t>(out[0]), static_cast<uint8_t>(BlockType::BLACKOUT));
 	// block size field (8 bytes, big-endian) contains value of 13
 	EXPECT_EQ(out.substr(1, 8), "\x00\x00\x00\x00\x00\x00\x00\x0d"s);
 	// Next 5 bytes: 0x04 0x00 0x0a 0x01 0x14
@@ -356,10 +356,10 @@ TEST_F(WriterTest, WriteBlackout_Short) {
 }
 
 ////////////////////////////////////////////////
-// Tests for WriteHeader
+// Tests for writeHeader
 ////////////////////////////////////////////////
-TEST_F(WriterTest, WriteHeader) {
-	// 1. Setup Header struct manually with unique values
+TEST_F(WriterTest, writeHeader) {
+	// 1. setup Header struct manually with unique values
 	Header h_struct;
 	h_struct.start_time = 10;
 	h_struct.end_time = 1000;
@@ -370,7 +370,7 @@ TEST_F(WriterTest, WriteHeader) {
 	h_struct.num_value_change_data_blocks = 3;
 	h_struct.timezero = 123456789;
 	h_struct.timescale = -9;
-	h_struct.filetype = FileType::eVerilog;
+	h_struct.filetype = FileType::VERILOG;
 
 	const string writer_name = "Verilator FST Writer Test";
 	// safe copy
@@ -386,38 +386,38 @@ TEST_F(WriterTest, WriteHeader) {
 	// fits with null if we want
 	if (dlen < sizeof(h_struct.date)) h_struct.date[dlen] = '\0';
 
-	// 2. Call static WriteHeader_ to stringstream
+	// 2. Call static writeHeader_ to stringstream
 	ostringstream os;
-	WriteHeader(h_struct, os);
+	writeHeader(h_struct, os);
 
 	// 3. Generate Golden Reference
 	std::vector<uint8_t> expected_vec;
-	StreamVectorWriteHelper h(expected_vec);
+	StreamVectorwriteHelper h(expected_vec);
 
 	// Helper to pad strings with nulls
 	auto write_padded = [&](const string &s, size_t len) {
 		size_t n = min(s.size(), len);
-		if (n > 0) h.WriteString(make_string_view_pair(s.data(), n));
-		if (len > n) h.Fill<char>(0, len - n);
+		if (n > 0) h.writeString(make_string_view_pair(s.data(), n));
+		if (len > n) h.fill<char>(0, len - n);
 	};
 
-	h.WriteBlockHeader(BlockType::Header, HeaderInfo::total_size)
-		.WriteUIntBE(uint64_t(10))    // start_time
-		.WriteUIntBE(uint64_t(1000))  // end_time
-		.Write(HeaderInfo::kEndianessMagicIdentifier)
-		.WriteUIntBE(uint64_t(4096))  // writer_memory_use
-		.WriteUIntBE(uint64_t(5))     // num_scopes
-		.WriteUIntBE(uint64_t(42))    // num_vars
-		.WriteUIntBE(uint64_t(100))   // num_handles
-		.WriteUIntBE(uint64_t(3))     // num_value_change_data_blocks
-		.WriteUIntBE(int8_t(-9));     // timescale
+	h.writeBlockHeader(BlockType::HEADER, HeaderInfo::total_size)
+		.writeUIntBE(uint64_t(10))    // start_time
+		.writeUIntBE(uint64_t(1000))  // end_time
+		.write(HeaderInfo::kEndianessMagicIdentifier)
+		.writeUIntBE(uint64_t(4096))  // Writer_memory_use
+		.writeUIntBE(uint64_t(5))     // num_scopes
+		.writeUIntBE(uint64_t(42))    // num_vars
+		.writeUIntBE(uint64_t(100))   // num_handles
+		.writeUIntBE(uint64_t(3))     // num_value_change_data_blocks
+		.writeUIntBE(int8_t(-9));     // timescale
 
 	write_padded(writer_name, sizeof(h_struct.writer));
 	write_padded(date_str, sizeof(h_struct.date));
 
-	h.Fill<char>(0, HeaderInfo::Size::reserved)                 // reserved
-		.WriteUIntBE(static_cast<uint8_t>(FileType::eVerilog))  // filetype (default)
-		.WriteUIntBE(int64_t(123456789));                       // timezero
+	h.fill<char>(0, HeaderInfo::Size::reserved)                // reserved
+		.writeUIntBE(static_cast<uint8_t>(FileType::VERILOG))  // filetype (default)
+		.writeUIntBE(int64_t(123456789));                      // timezero
 
 	// 4. Compare
 	// Since stream includes binary 0s, we compare underlying strings

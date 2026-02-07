@@ -37,36 +37,36 @@ U to_big_endian(U u) {
 
 }  // namespace platform
 
-struct StreamWriteHelper {
+struct StreamwriteHelper {
 	std::ostream *os;
 
-	StreamWriteHelper(std::ostream &os_) : os(&os_) {}
-	StreamWriteHelper(std::ostream *os_) : os(os_) {}
+	StreamwriteHelper(std::ostream &os_) : os(&os_) {}
+	StreamwriteHelper(std::ostream *os_) : os(os_) {}
 
-	// Write the entire uint, big-endian
+	// write the entire uint, big-endian
 	// We do not provide little-endian version since FST only uses big-endian
 	template <typename U>
-	StreamWriteHelper &WriteUInt(U u) {
+	StreamwriteHelper &writeUInt(U u) {
 		u = platform::to_big_endian(u);
 		os->write(reinterpret_cast<const char *>(&u), sizeof(u));
 		return *this;
 	}
 
-	// Write the uint, big-endian, left-aligned but only (bitwidth+7)/8 bytes
+	// write the uint, big-endian, left-aligned but only (bitwidth+7)/8 bytes
 	// This is a very special case for value changes
 	// For example, if the value is 10-bits (e.g. logic [9:0] in Verilog),
 	// then the first byte will be [9-:8], then {[1:0], 6'b0}.
 	template <typename U>
-	StreamWriteHelper &WriteUIntPartialForValueChange(U u, size_t bitwidth) {
+	StreamwriteHelper &writeUIntPartialForValueChange(U u, size_t bitwidth) {
 		// Shift left to align the MSB to the MSB of the uint
 		u <<= sizeof(u) * 8 - bitwidth;
-		// Write the first (bitwidth+7)/8 bytes
+		// write the first (bitwidth+7)/8 bytes
 		u = platform::to_big_endian(u);
 		os->write(reinterpret_cast<const char *>(&u), (bitwidth + 7) / 8);
 		return *this;
 	}
 
-	StreamWriteHelper &WriteLEB128(uint64_t v) {
+	StreamwriteHelper &writeLEB128(uint64_t v) {
 		// Just reuse the logic from fstapi.c, is there a better way?
 		uint64_t nxt;
 		unsigned char buf[10]; /* ceil(64/7) = 10 */
@@ -82,7 +82,7 @@ struct StreamWriteHelper {
 		return *this;
 	}
 
-	StreamWriteHelper &WriteLEB128Signed(int64_t v) {
+	StreamwriteHelper &writeLEB128Signed(int64_t v) {
 		// Just reuse the logic from fstapi.c, is there a better way?
 		unsigned char buf[15]; /* ceil(64/7) = 10 + sign byte padded way up */
 		unsigned char byt;
@@ -106,56 +106,56 @@ struct StreamWriteHelper {
 	}
 
 	template <typename F>
-	StreamWriteHelper &WriteFloat(F f) {
+	StreamwriteHelper &writeFloat(F f) {
 		// Always write in native endianness
 		os->write(reinterpret_cast<const char *>(&f), sizeof(f));
 		return *this;
 	}
 
-	StreamWriteHelper &WriteBlockHeader(fst::BlockType block_type, uint64_t block_length) {
+	StreamwriteHelper &writeBlockHeader(fst::BlockType block_type, uint64_t block_length) {
 		return (
 			this  //
-				->WriteUInt(static_cast<uint8_t>(block_type))
-				.WriteUInt(
+				->writeUInt(static_cast<uint8_t>(block_type))
+				.writeUInt(
 					block_length + 8
 				)  // The 8 is required by FST, which is the size of this uint64_t
 		);
 	}
 
-	// Write the string, non-null-terminated
-	StreamWriteHelper &WriteString(const fst::string_view_pair str) {
+	// write the string, non-null-terminated
+	StreamwriteHelper &writeString(const fst::string_view_pair str) {
 		os->write(str.first, str.second);
 		return *this;
 	}
 
-	// Write the string, null-terminated
-	StreamWriteHelper &WriteString0(const fst::string_view_pair str) {
+	// write the string, null-terminated
+	StreamwriteHelper &writeString0(const fst::string_view_pair str) {
 		os->write(str.first, str.second).put('\0');
 		return *this;
 	}
-	StreamWriteHelper &WriteString(const std::string &str) {
-		return WriteString0(fst::make_string_view_pair(str.c_str(), str.size()));
+	StreamwriteHelper &writeString(const std::string &str) {
+		return writeString0(fst::make_string_view_pair(str.c_str(), str.size()));
 	}
-	StreamWriteHelper &WriteString(const char *str) {
-		return WriteString0(fst::make_string_view_pair(str));
+	StreamwriteHelper &writeString(const char *str) {
+		return writeString0(fst::make_string_view_pair(str));
 	}
 
-	StreamWriteHelper &Write(const char *ptr, size_t size) {
+	StreamwriteHelper &write(const char *ptr, size_t size) {
 		os->write(ptr, size);
 		return *this;
 	}
 
-	StreamWriteHelper &Write(const uint8_t *ptr, size_t size) {
+	StreamwriteHelper &write(const uint8_t *ptr, size_t size) {
 		os->write(reinterpret_cast<const char *>(ptr), size);
 		return *this;
 	}
 
-	StreamWriteHelper &Seek(std::streamoff pos, std::ios_base::seekdir dir) {
+	StreamwriteHelper &seek(std::streamoff pos, std::ios_base::seekdir dir) {
 		os->seekp(pos, dir);
 		return *this;
 	}
 
-	StreamWriteHelper &Fill(char fill_char, size_t size) {
+	StreamwriteHelper &fill(char fill_char, size_t size) {
 		if (size > 32) {
 			// optimize large fills
 			constexpr unsigned kChunkSize = 16;
@@ -173,51 +173,51 @@ struct StreamWriteHelper {
 	}
 
 	// Handy functions for writing variable length data, you can
-	// cascade multiple Write() calls after RecordOffset(), then
+	// cascade multiple write() calls after RecordOffset(), then
 	// call DiffOffset() to get the total number of bytes written.
 
 	// (1)
 	// std::streamoff diff;
 	// h
 	// .BeginOffset(diff)
-	// .Write(...)
+	// .write(...)
 	// ... do other stuff ...
 	// .EndOffset(&diff); <-- diff will be set to the number of bytes written
 	// (2)
 	// std::streamoff pos, diff;
 	// h
 	// .BeginOffset(pos)
-	// .Write(...)
+	// .write(...)
 	// ... do other stuff ...
 	// .EndOffset(&diff, pos); <-- diff will be set to the number of bytes written
 
 	// The API uses pointer on purpose to prevent you pass (pos, diff) as arguments
 	// to EndOffset(), which is a common mistake.
 
-	StreamWriteHelper &BeginOffset(std::streamoff &pos) {
+	StreamwriteHelper &BeginOffset(std::streamoff &pos) {
 		pos = os->tellp();
 		return *this;
 	}
 
-	StreamWriteHelper &EndOffset(std::streamoff *diff) {
+	StreamwriteHelper &EndOffset(std::streamoff *diff) {
 		// diff shall store previous position before calling this function
 		*diff = os->tellp() - *diff;
 		return *this;
 	}
 
-	StreamWriteHelper &EndOffset(std::streamoff *diff, std::streamoff pos) {
+	StreamwriteHelper &EndOffset(std::streamoff *diff, std::streamoff pos) {
 		*diff = os->tellp() - pos;
 		return *this;
 	}
 };
 
-struct StreamVectorWriteHelper {
+struct StreamVectorwriteHelper {
 	std::vector<uint8_t> &vec;
 
-	StreamVectorWriteHelper(std::vector<uint8_t> &vec_) : vec(vec_) {}
+	StreamVectorwriteHelper(std::vector<uint8_t> &vec_) : vec(vec_) {}
 
 	template <typename T>
-	StreamVectorWriteHelper &Write(T u) {
+	StreamVectorwriteHelper &write(T u) {
 		const size_t s = sizeof(u);
 		vec.resize(vec.size() + s);
 		std::memcpy(vec.data() + vec.size() - s, &u, s);
@@ -225,7 +225,7 @@ struct StreamVectorWriteHelper {
 	}
 
 	template <typename T>
-	StreamVectorWriteHelper &Fill(T u, size_t count) {
+	StreamVectorwriteHelper &fill(T u, size_t count) {
 		const size_t s = sizeof(u) * count;
 		vec.resize(vec.size() + s);
 		for (size_t i = 0; i < count; ++i) {
@@ -235,17 +235,23 @@ struct StreamVectorWriteHelper {
 	}
 
 	template <typename T>
-	StreamVectorWriteHelper &Write(T *u, size_t size) {
+	StreamVectorwriteHelper &write(T *u, size_t size) {
 		const size_t s = sizeof(u) * size;
 		vec.resize(vec.size() + s);
 		std::memcpy(vec.data() + vec.size() - s, u, s);
 		return *this;
 	}
 
-	// Write the entire uint, big-endian
+	template <typename E>
+	StreamVectorwriteHelper &writeU8Enum(E e) {
+		vec.push_back(static_cast<uint8_t>(e));
+		return *this;
+	}
+
+	// write the entire uint, big-endian
 	// We do not provide little-endian version since FST only uses big-endian
 	template <typename U>
-	StreamVectorWriteHelper &WriteUIntBE(U u) {
+	StreamVectorwriteHelper &writeUIntBE(U u) {
 		u = platform::to_big_endian(u);
 		const size_t s = sizeof(u);
 		vec.resize(vec.size() + s);
@@ -253,15 +259,15 @@ struct StreamVectorWriteHelper {
 		return *this;
 	}
 
-	// Write the uint, big-endian, left-aligned but only (bitwidth+7)/8 bytes
+	// write the uint, big-endian, left-aligned but only (bitwidth+7)/8 bytes
 	// This is a very special case for value changes
 	// For example, if the value is 10-bits (e.g. logic [9:0] in Verilog),
 	// then the first byte will be [9-:8], then {[1:0], 6'b0}.
 	template <typename U>
-	StreamVectorWriteHelper &WriteUIntPartialForValueChange(U u, size_t bitwidth) {
+	StreamVectorwriteHelper &writeUIntPartialForValueChange(U u, size_t bitwidth) {
 		// Shift left to align the MSB to the MSB of the uint
 		u <<= sizeof(u) * 8 - bitwidth;
-		// Write the first (bitwidth+7)/8 bytes
+		// write the first (bitwidth+7)/8 bytes
 		u = platform::to_big_endian(u);
 		const size_t s = (bitwidth + 7) / 8;
 		vec.resize(vec.size() + s);
@@ -269,7 +275,7 @@ struct StreamVectorWriteHelper {
 		return *this;
 	}
 
-	StreamVectorWriteHelper &WriteLEB128(uint64_t v) {
+	StreamVectorwriteHelper &writeLEB128(uint64_t v) {
 		// Just reuse the logic from fstapi.c, is there a better way?
 		uint64_t nxt;
 		unsigned char buf[10]; /* ceil(64/7) = 10 */
@@ -288,7 +294,7 @@ struct StreamVectorWriteHelper {
 		return *this;
 	}
 
-	StreamVectorWriteHelper &WriteLEB128Signed(int64_t v) {
+	StreamVectorwriteHelper &writeLEB128Signed(int64_t v) {
 		// Just reuse the logic from fstapi.c, is there a better way?
 		unsigned char buf[15]; /* ceil(64/7) = 10 + sign byte padded way up */
 		unsigned char byt;
@@ -314,18 +320,18 @@ struct StreamVectorWriteHelper {
 		return *this;
 	}
 
-	StreamVectorWriteHelper &WriteBlockHeader(fst::BlockType block_type, uint64_t block_length) {
+	StreamVectorwriteHelper &writeBlockHeader(fst::BlockType block_type, uint64_t block_length) {
 		return (
 			this  //
-				->WriteUIntBE(static_cast<uint8_t>(block_type))
-				.WriteUIntBE(
+				->writeUIntBE(static_cast<uint8_t>(block_type))
+				.writeUIntBE(
 					block_length + 8
 				)  // The 8 is required by FST, which is the size of this uint64_t
 		);
 	}
 
-	// Write the string, non-null-terminated
-	StreamVectorWriteHelper &WriteString(const fst::string_view_pair str) {
+	// write the string, non-null-terminated
+	StreamVectorwriteHelper &writeString(const fst::string_view_pair str) {
 		if (str.second != 0) {
 			const size_t len = str.second;
 			const size_t cur = vec.size();
@@ -335,8 +341,8 @@ struct StreamVectorWriteHelper {
 		return *this;
 	}
 
-	// Write the string, null-terminated
-	StreamVectorWriteHelper &WriteString0(const fst::string_view_pair str) {
+	// write the string, null-terminated
+	StreamVectorwriteHelper &writeString0(const fst::string_view_pair str) {
 		if (str.second != 0) {
 			const size_t len = str.second;
 			const size_t cur = vec.size();
@@ -348,11 +354,11 @@ struct StreamVectorWriteHelper {
 		}
 		return *this;
 	}
-	StreamVectorWriteHelper &WriteString(const std::string &str) {
-		return WriteString0(fst::make_string_view_pair(str.c_str(), str.size()));
+	StreamVectorwriteHelper &writeString(const std::string &str) {
+		return writeString0(fst::make_string_view_pair(str.c_str(), str.size()));
 	}
-	StreamVectorWriteHelper &WriteString(const char *str) {
-		return WriteString0(fst::make_string_view_pair(str));
+	StreamVectorwriteHelper &writeString(const char *str) {
+		return writeString0(fst::make_string_view_pair(str));
 	}
 };
 

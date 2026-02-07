@@ -38,9 +38,9 @@ namespace fst {
 
 namespace detail {
 
-void BlackoutData::EmitDumpActive(uint64_t current_timestamp, bool enable) {
-	StreamVectorWriteHelper h(buffer);
-	h.WriteUIntBE<uint8_t>(enable).WriteLEB128(current_timestamp - previous_timestamp);
+void BlackoutData::emitDumpActive(uint64_t current_timestamp, bool enable) {
+	StreamVectorwriteHelper h(buffer);
+	h.writeUIntBE<uint8_t>(enable).writeLEB128(current_timestamp - previous_timestamp);
 	++count;
 }
 
@@ -50,7 +50,7 @@ ValueChangeData::ValueChangeData() {
 
 ValueChangeData::~ValueChangeData() = default;
 
-void ValueChangeData::KeepOnlyTheLatestValue() {
+void ValueChangeData::keepOnlyTheLatestValue() {
 	for (auto &v : variable_infos) {
 		v.KeepOnlyTheLatestValue();
 	}
@@ -61,7 +61,7 @@ void ValueChangeData::KeepOnlyTheLatestValue() {
 
 }  // namespace detail
 
-void Writer::Open(const string_view_pair name) {
+void Writer::open(const string_view_pair name) {
 	FST_CHECK(not main_fst_file_.is_open());
 	main_fst_file_.open(string(name.first, name.second), ios::binary);
 	// reserve space for header, we will write it at Close(), append geometry and hierarchy at the
@@ -69,52 +69,52 @@ void Writer::Open(const string_view_pair name) {
 	main_fst_file_.seekp(kSharedBlockHeaderSize + HeaderInfo::total_size, ios_base::beg);
 }
 
-void Writer::Close() {
+void Writer::close() {
 	if (not main_fst_file_.is_open()) return;
 	// Finalize header fields
 	if (header_.date[0] == '\0') {
 		// date is not set yet, set to the current date
-		SetDate();
+		setDate();
 	}
 	if (header_.start_time == kInvalidTime) {
 		header_.start_time = 0;
 	}
-	FlushValueChangeData_(value_change_data_, main_fst_file_);
-	AppendGeometry_(main_fst_file_);
-	AppendHierarchy_(main_fst_file_);
-	AppendBlackout_(main_fst_file_);
+	flushValueChangeData_(value_change_data_, main_fst_file_);
+	appendGeometry_(main_fst_file_);
+	appendHierarchy_(main_fst_file_);
+	appendBlackout_(main_fst_file_);
 	// Note: write header seek to 0, so we need to do
 	// this after all append operations
-	WriteHeader_(header_, main_fst_file_);
+	writeHeader_(header_, main_fst_file_);
 	main_fst_file_.close();
 }
 
 /////////////////////////////////////////
 // Hierarchy / variable API
 /////////////////////////////////////////
-void Writer::SetScope(
+void Writer::setScope(
 	Hierarchy::ScopeType scopetype,
 	const string_view_pair scopename,
 	const string_view_pair scopecomp
 ) {
 	FST_CHECK(not hierarchy_finalized_);
-	StreamVectorWriteHelper h(hierarchy_buffer_);
+	StreamVectorwriteHelper h(hierarchy_buffer_);
 	h  //
-		.WriteUIntBE<uint8_t>(Hierarchy::ScopeControlType::eVcdScope)
-		.WriteUIntBE<uint8_t>(scopetype)
-		.WriteString0(scopename)
-		.WriteString0(scopecomp);
+		.writeU8Enum(Hierarchy::ScopeControlType::VCD_SCOPE)
+		.writeU8Enum(scopetype)
+		.writeString0(scopename)
+		.writeString0(scopecomp);
 	++header_.num_scopes;
 }
 
-void Writer::Upscope() {
+void Writer::upscope() {
 	FST_CHECK(not hierarchy_finalized_);
 	// TODO: shall we inline it?
-	StreamVectorWriteHelper h(hierarchy_buffer_);
-	h.WriteUIntBE<uint8_t>(Hierarchy::ScopeControlType::eVcdUpscope);
+	StreamVectorwriteHelper h(hierarchy_buffer_);
+	h.writeU8Enum(Hierarchy::ScopeControlType::VCD_UPSCOPE);
 }
 
-Handle Writer::CreateVar(
+Handle Writer::createVar(
 	Hierarchy::VarType vartype,
 	Hierarchy::VarDirection vardir,
 	uint32_t bitwidth,
@@ -122,20 +122,20 @@ Handle Writer::CreateVar(
 	Handle alias_handle
 ) {
 	FST_CHECK(not hierarchy_finalized_);
-	// Write hierarchy entry: type, direction, name, length, alias
-	StreamVectorWriteHelper h(hierarchy_buffer_);
+	// write hierarchy entry: type, direction, name, length, alias
+	StreamVectorwriteHelper h(hierarchy_buffer_);
 
 	// determine real/string handling like original C implementation
 	bool is_real = false;
 	switch (vartype) {
-	case Hierarchy::VarType::eVcdReal:
-	case Hierarchy::VarType::eVcdReal_parameter:
-	case Hierarchy::VarType::eVcdRealtime:
-	case Hierarchy::VarType::eSvShortreal:
+	case Hierarchy::VarType::VCD_REAL:
+	case Hierarchy::VarType::VCD_REAL_PARAMETER:
+	case Hierarchy::VarType::VCD_REALTIME:
+	case Hierarchy::VarType::SV_SHORTREAL:
 		is_real = true;
 		bitwidth = 8;  // recast to double size
 		break;
-	case Hierarchy::VarType::eGenString:
+	case Hierarchy::VarType::GEN_STRING:
 		bitwidth = 0;
 		break;
 	default:
@@ -155,18 +155,18 @@ Handle Writer::CreateVar(
 	}
 
 	h  //
-		.WriteUIntBE<uint8_t>(vartype)
-		.WriteUIntBE<uint8_t>(vardir)
-		.WriteString0(name)
-		.WriteLEB128(bitwidth)
-		.WriteLEB128(is_alias ? alias_handle : 0);
+		.writeU8Enum(vartype)
+		.writeU8Enum(vardir)
+		.writeString0(name)
+		.writeLEB128(bitwidth)
+		.writeLEB128(is_alias ? alias_handle : 0);
 
 	// If alias_handle == 0, we must allocate geom/valpos/curval entries and create a new handle
 	if (not is_alias) {
-		StreamVectorWriteHelper g(geometry_buffer_);
+		StreamVectorwriteHelper g(geometry_buffer_);
 		// I don't know why the original C implementation encode bitwidth again
 		const uint32_t geom_len = (bitwidth == 0 ? uint32_t(-1) : is_real ? uint32_t(0) : bitwidth);
-		g.WriteLEB128(geom_len);
+		g.writeLEB128(geom_len);
 		value_change_data_.variable_infos.emplace_back(bitwidth, is_real);
 	}
 
@@ -174,7 +174,7 @@ Handle Writer::CreateVar(
 }
 
 // LCOV_EXCL_START
-Handle Writer::CreateVar2(
+Handle Writer::createVar2(
 	Hierarchy::VarType vartype,
 	Hierarchy::VarDirection vardir,
 	uint32_t bitwidth,
@@ -201,11 +201,11 @@ Handle Writer::CreateVar2(
 /////////////////////////////////////////
 // Waveform API
 /////////////////////////////////////////
-void Writer::EmitTimeChange(uint64_t tim) {
-	FinalizeHierarchy_();
+void Writer::emitTimeChange(uint64_t tim) {
+	finalizeHierarchy_();
 
 	if (value_change_data_usage_ > value_change_data_flush_threshold_ or flush_pending_) {
-		FlushValueChangeData_(value_change_data_, main_fst_file_);
+		flushValueChangeData_(value_change_data_, main_fst_file_);
 	}
 
 	// Update header
@@ -217,47 +217,47 @@ void Writer::EmitTimeChange(uint64_t tim) {
 	}
 }
 
-void Writer::EmitDumpActive(bool enable) {
+void Writer::emitDumpActive(bool enable) {
 	// TODO: this API is not fully understood, need to check
 	FST_CHECK(not value_change_data_.timestamps.empty());
-	blackout_data_.EmitDumpActive(value_change_data_.timestamps.back(), enable);
+	blackout_data_.emitDumpActive(value_change_data_.timestamps.back(), enable);
 }
 
 template <typename T, typename... U>
-uint64_t EmitValueHelperStaticDispatch_(
+uint64_t emitValueHelperStaticDispatch_(
 	VariableInfo *var_info, const uint64_t time_index, U &&...val
 ) {
-	return static_cast<T *>(var_info)->EmitValueChange(time_index, std::forward<U>(val)...);
+	return static_cast<T *>(var_info)->emitValueChange(time_index, std::forward<U>(val)...);
 }
 
 template <typename... T>
-void Writer::EmitValueChangeHelper_(Handle handle, T &&...val) {
+void Writer::emitValueChangeHelper_(Handle handle, T &&...val) {
 	// Let data prefetch go first
 	auto &var_info = value_change_data_.variable_infos AT(handle - 1);
 	__builtin_prefetch(var_info.data_ptr() + var_info.size() - 1, 1, 0);
 
-	FinalizeHierarchy_();
+	finalizeHierarchy_();
 
 	// Original implementation: virtual, but vtable is too costly, we switch to if-else static
 	// dispatch
 	value_change_data_usage_ +=
-		var_info.EmitValueChange(value_change_data_.timestamps.size() - 1, std::forward<T>(val)...);
+		var_info.emitValueChange(value_change_data_.timestamps.size() - 1, std::forward<T>(val)...);
 }
 
-void Writer::EmitValueChange(Handle handle, const uint32_t *val, EncodingType encoding) {
-	EmitValueChangeHelper_(handle, val, encoding);
+void Writer::emitValueChange(Handle handle, const uint32_t *val, EncodingType encoding) {
+	emitValueChangeHelper_(handle, val, encoding);
 }
 
-void Writer::EmitValueChange(Handle handle, const uint64_t *val, EncodingType encoding) {
-	EmitValueChangeHelper_(handle, val, encoding);
+void Writer::emitValueChange(Handle handle, const uint64_t *val, EncodingType encoding) {
+	emitValueChangeHelper_(handle, val, encoding);
 }
 
-void Writer::EmitValueChange(Handle handle, uint64_t val) {
-	EmitValueChangeHelper_(handle, val);
+void Writer::emitValueChange(Handle handle, uint64_t val) {
+	emitValueChangeHelper_(handle, val);
 }
 
-void Writer::EmitValueChange(Handle handle, const char *val) {
-	FinalizeHierarchy_();
+void Writer::emitValueChange(Handle handle, const char *val) {
+	finalizeHierarchy_();
 	auto &var_info = value_change_data_.variable_infos AT(handle - 1);
 	const uint32_t bitwidth = var_info.bitwidth();
 	FST_DCHECK_NE(bitwidth, 0);
@@ -278,38 +278,38 @@ void Writer::EmitValueChange(Handle handle, const char *val) {
 	}
 
 	if (bitwidth <= 64) {
-		EmitValueChange(handle, packed_value_buffer.front());
+		emitValueChange(handle, packed_value_buffer.front());
 	} else {
-		EmitValueChange(handle, packed_value_buffer.data(), EncodingType::eBinary);
+		emitValueChange(handle, packed_value_buffer.data(), EncodingType::BINARY);
 	}
 }
 
 /////////////////////////////////////////
 // File flushing functions
 /////////////////////////////////////////
-void Writer::WriteHeader_(const Header &header, ostream &os) {
-	StreamWriteHelper h(os);
+void Writer::writeHeader_(const Header &header, ostream &os) {
+	StreamwriteHelper h(os);
 	static char kDefaultWriterName[sizeof(header.writer)] = "fstcppWriter";
 	const char *writer_name = header.writer[0] == '\0' ? kDefaultWriterName : header.writer;
 
 	// Actual write
 	h  //
-		.Seek(streamoff(0), ios_base::beg)
-		.WriteBlockHeader(BlockType::Header, HeaderInfo::total_size)
-		.WriteUInt(header.start_time)
-		.WriteUInt(header.end_time)
-		.WriteFloat(HeaderInfo::kEndianessMagicIdentifier)
-		.WriteUInt(header.writer_memory_use)
-		.WriteUInt(header.num_scopes)
-		.WriteUInt(header.num_vars)
-		.WriteUInt(header.num_handles)
-		.WriteUInt(header.num_value_change_data_blocks)
-		.WriteUInt(header.timescale)
-		.Write(writer_name, sizeof(header.writer))
-		.Write(header.date, sizeof(header.date))
-		.Fill('\0', HeaderInfo::Size::reserved)
-		.WriteUInt(static_cast<uint8_t>(header.filetype))
-		.WriteUInt(header.timezero);
+		.seek(streamoff(0), ios_base::beg)
+		.writeBlockHeader(BlockType::HEADER, HeaderInfo::total_size)
+		.writeUInt(header.start_time)
+		.writeUInt(header.end_time)
+		.writeFloat(HeaderInfo::kEndianessMagicIdentifier)
+		.writeUInt(header.writer_memory_use)
+		.writeUInt(header.num_scopes)
+		.writeUInt(header.num_vars)
+		.writeUInt(header.num_handles)
+		.writeUInt(header.num_value_change_data_blocks)
+		.writeUInt(header.timescale)
+		.write(writer_name, sizeof(header.writer))
+		.write(header.date, sizeof(header.date))
+		.fill('\0', HeaderInfo::Size::reserved)
+		.writeUInt(static_cast<uint8_t>(header.filetype))
+		.writeUInt(header.timezero);
 
 	FST_DCHECK_EQ(os.tellp(), HeaderInfo::total_size + kSharedBlockHeaderSize);
 };
@@ -317,7 +317,7 @@ void Writer::WriteHeader_(const Header &header, ostream &os) {
 namespace {  // compression helpers
 
 // These API pass compressed_data to avoid frequent reallocations
-void CompressUsingLz4(const vector<uint8_t> &uncompressed_data, vector<uint8_t> &compressed_data) {
+void compressUsingLz4(const vector<uint8_t> &uncompressed_data, vector<uint8_t> &compressed_data) {
 	const int uncompressed_size = uncompressed_data.size();
 	const int compressed_bound = LZ4_compressBound(uncompressed_size);
 	compressed_data.resize(compressed_bound);
@@ -330,7 +330,7 @@ void CompressUsingLz4(const vector<uint8_t> &uncompressed_data, vector<uint8_t> 
 	compressed_data.resize(compressed_size);
 }
 
-void CompressUsingZlib(
+void compressUsingZlib(
 	const vector<uint8_t> &uncompressed_data, vector<uint8_t> &compressed_data, int level
 ) {
 	// compress using zlib
@@ -352,7 +352,7 @@ void CompressUsingZlib(
 	compressed_data.resize(compressed_bound);
 }
 
-pair<const uint8_t *, size_t> SelectSmaller(
+pair<const uint8_t *, size_t> selectSmaller(
 	const vector<uint8_t> &compressed_data, const vector<uint8_t> &uncompressed_data
 ) {
 	pair<const uint8_t *, size_t> ret;
@@ -370,31 +370,31 @@ pair<const uint8_t *, size_t> SelectSmaller(
 
 // AppendHierarchy_ and AppendGeometry_ shares a very similar structure
 // But they are slightly different in the original C implementation...
-void Writer::AppendGeometry_(ostream &os) {
+void Writer::appendGeometry_(ostream &os) {
 	if (geometry_buffer_.empty()) {
 		// skip the geometry block if there is no data
 		return;
 	}
 	vector<uint8_t> geometry_buffer_compressed_;
-	CompressUsingZlib(geometry_buffer_, geometry_buffer_compressed_, 9);
+	compressUsingZlib(geometry_buffer_, geometry_buffer_compressed_, 9);
 	// TODO: Replace with structured binding in C++17
-	const auto selected_pair = SelectSmaller(geometry_buffer_compressed_, geometry_buffer_);
+	const auto selected_pair = selectSmaller(geometry_buffer_compressed_, geometry_buffer_);
 	const auto selected_data = selected_pair.first;
 	const auto selected_size = selected_pair.second;
 
-	StreamWriteHelper h(os);
+	StreamwriteHelper h(os);
 	h  //
-		.Seek(0, ios_base::end)
+		.seek(0, ios_base::end)
 		// 16 is for the uncompressed_size and header_.num_handles
-		.WriteBlockHeader(BlockType::Geometry, selected_size + 16)
-		.WriteUInt<uint64_t>(geometry_buffer_.size())
+		.writeBlockHeader(BlockType::GEOMETRY, selected_size + 16)
+		.writeUInt<uint64_t>(geometry_buffer_.size())
 		// I don't know why the original C implementation write num_handles again here
 		// but we have to follow it
-		.WriteUInt(header_.num_handles)
-		.Write(selected_data, selected_size);
+		.writeUInt(header_.num_handles)
+		.write(selected_data, selected_size);
 }
 
-void Writer::AppendHierarchy_(ostream &os) {
+void Writer::appendHierarchy_(ostream &os) {
 	if (hierarchy_buffer_.empty()) {
 		// skip the hierarchy block if there is no data
 		return;
@@ -410,39 +410,39 @@ void Writer::AppendHierarchy_(ostream &os) {
 		compressed_bound
 	);
 
-	StreamWriteHelper h(os);
+	StreamwriteHelper h(os);
 	h  //
-		.Seek(0, ios_base::end)
+		.seek(0, ios_base::end)
 		// +16 is for the uncompressed_size
-		.WriteBlockHeader(BlockType::HierarchyLz4Compressed, compressed_size + 8)
-		.WriteUInt<uint64_t>(hierarchy_buffer_.size())
-		.Write(hierarchy_buffer_compressed_.data(), compressed_size);
+		.writeBlockHeader(BlockType::HIERARCHY_LZ4_COMPRESSED, compressed_size + 8)
+		.writeUInt<uint64_t>(hierarchy_buffer_.size())
+		.write(hierarchy_buffer_compressed_.data(), compressed_size);
 }
 
-void Writer::AppendBlackout_(ostream &os) {
+void Writer::appendBlackout_(ostream &os) {
 	if (blackout_data_.count == 0) {
 		// skip the blackout block if there is no data
 		return;
 	}
 	const vector<uint8_t> &blackout_data = blackout_data_.buffer;
 	const auto begin_of_blackout_block = os.tellp();
-	StreamWriteHelper h(os);
+	StreamwriteHelper h(os);
 	h  //
 	   // skip the block header
-		.Seek(kSharedBlockHeaderSize, ios_base::cur)
+		.seek(kSharedBlockHeaderSize, ios_base::cur)
 		// Note: we cannot know the size beforehand since this length is LEB128 encoded
-		.WriteLEB128(blackout_data.size())
-		.Write(blackout_data.data(), blackout_data.size());
+		.writeLEB128(blackout_data.size())
+		.write(blackout_data.data(), blackout_data.size());
 
 	const auto size_of_blackout_block = os.tellp() - begin_of_blackout_block;
 	h  //
 	   // go back to the beginning of the block
-		.Seek(begin_of_blackout_block, ios_base::beg)
+		.seek(begin_of_blackout_block, ios_base::beg)
 		// and write the block header
-		.WriteBlockHeader(BlockType::Blackout, size_of_blackout_block - kSharedBlockHeaderSize);
+		.writeBlockHeader(BlockType::BLACKOUT, size_of_blackout_block - kSharedBlockHeaderSize);
 }
 
-void detail::ValueChangeData::WriteInitialBits(vector<uint8_t> &os) const {
+void detail::ValueChangeData::writeInitialBits(vector<uint8_t> &os) const {
 	// Build vc_bits_data by concatenating each variable's initial bits as documented.
 	// We will not compress for now; just generate the raw bytes and print summary to stdout.
 	for (size_t i = 0; i < variable_infos.size(); ++i) {
@@ -451,7 +451,7 @@ void detail::ValueChangeData::WriteInitialBits(vector<uint8_t> &os) const {
 	}
 }
 
-vector<vector<uint8_t>> detail::ValueChangeData::ComputeWaveData() const {
+vector<vector<uint8_t>> detail::ValueChangeData::computeWaveData() const {
 	const size_t N = variable_infos.size();
 	vector<vector<uint8_t>> data(N);
 	for (size_t i = 0; i < N; ++i) {
@@ -460,7 +460,7 @@ vector<vector<uint8_t>> detail::ValueChangeData::ComputeWaveData() const {
 	return data;
 }
 
-vector<int64_t> detail::ValueChangeData::UniquifyWaveData(vector<vector<uint8_t>> &data) {
+vector<int64_t> detail::ValueChangeData::uniquifyWaveData(vector<vector<uint8_t>> &data) {
 	// After this function, positions[i] is:
 	//  - = 0: If data[i] is unique (first occurrence)
 	//  - < 0: If data[i] is a duplicate, encoded as -(original_index + 1)
@@ -499,7 +499,7 @@ vector<int64_t> detail::ValueChangeData::UniquifyWaveData(vector<vector<uint8_t>
 	return positions;
 }
 
-uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
+uint64_t detail::ValueChangeData::encodePositionsAndwriteUniqueWaveData(
 	ostream &os,
 	const vector<vector<uint8_t>> &data,
 	vector<int64_t> &positions,
@@ -511,7 +511,7 @@ uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
 	//  unchanged
 	//  - > 0: The size (in bytes) of the wave data block for *previous* variable,
 	//         the previous block size of the first block is 1 (required by FST spec).
-	StreamWriteHelper h(os);
+	StreamwriteHelper h(os);
 	int64_t previous_size = 1;
 	uint64_t written_count = 0;
 	vector<uint8_t> compressed_data;
@@ -524,12 +524,12 @@ uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
 			// try to compress
 			const uint8_t *selected_data;
 			size_t selected_size;
-			if (pack_type == WriterPackType::eNoCompression or data[i].size() <= 32) {
+			if (pack_type == WriterPackType::NO_COMPRESSION or data[i].size() <= 32) {
 				selected_data = data[i].data();
 				selected_size = data[i].size();
 			} else {
-				CompressUsingLz4(data[i], compressed_data);
-				const auto selected_pair = SelectSmaller(compressed_data, data[i]);
+				compressUsingLz4(data[i], compressed_data);
+				const auto selected_pair = selectSmaller(compressed_data, data[i]);
 				selected_data = selected_pair.first;
 				selected_size = selected_pair.second;
 			}
@@ -541,8 +541,8 @@ uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
 			h  //
 				.BeginOffset(bytes_written)
 				// FST spec: 0 means no compression, >0 for the size of the original data
-				.WriteLEB128(is_compressed ? data[i].size() : 0)
-				.Write(selected_data, selected_size)
+				.writeLEB128(is_compressed ? data[i].size() : 0)
+				.write(selected_data, selected_size)
 				.EndOffset(&bytes_written);
 			positions[i] = previous_size;
 			previous_size = bytes_written;
@@ -551,11 +551,11 @@ uint64_t detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
 	return written_count;
 }
 
-void detail::ValueChangeData::WriteEncodedPositions(
+void detail::ValueChangeData::writeEncodedPositions(
 	const vector<int64_t> &encoded_positions, ostream &os
 ) {
 	// Encode positions with the specified run/varint rules into a varint buffer.
-	StreamWriteHelper h(os);
+	StreamwriteHelper h(os);
 
 	size_t i = 0;
 	const size_t n = encoded_positions.size();
@@ -565,7 +565,7 @@ void detail::ValueChangeData::WriteEncodedPositions(
 	int64_t prev_negative = 1;
 
 	// Please refer to the comments in
-	// FlushValueChangeData_ValueChanges_EncodePositionsAndWriteWaveData_() for the encoding rules
+	// FlushValueChangeData_ValueChanges_EncodePositionsAndwriteWaveData_() for the encoding rules
 	// of positions.
 	while (i < n) {
 		if (encoded_positions[i] == 0) {
@@ -576,7 +576,7 @@ void detail::ValueChangeData::WriteEncodedPositions(
 				++i;
 			}
 			// encode as signed (run << 1) | 0 and write as signed LEB128
-			h.WriteLEB128(run << 1);
+			h.writeLEB128(run << 1);
 		} else {
 			// non-zero
 			int64_t value_to_encode = 0;
@@ -593,43 +593,43 @@ void detail::ValueChangeData::WriteEncodedPositions(
 			}
 
 			// encode as signed (value << 1) | 1 and write as signed LEB128
-			h.WriteLEB128Signed((value_to_encode << 1) | 1);
+			h.writeLEB128Signed((value_to_encode << 1) | 1);
 
 			++i;
 		}
 	}
 }
 
-void detail::ValueChangeData::WriteTimestamps(vector<uint8_t> &os) const {
+void detail::ValueChangeData::writeTimestamps(vector<uint8_t> &os) const {
 	// Build LEB128-encoded delta stream (first delta is timestamp[0] - 0)
-	StreamVectorWriteHelper h(os);
+	StreamVectorwriteHelper h(os);
 	uint64_t prev = 0;
 	for (size_t i = 0; i < timestamps.size(); ++i) {
 		const uint64_t cur = timestamps[i];
 		const uint64_t delta = cur - prev;
-		h.WriteLEB128(delta);
+		h.writeLEB128(delta);
 		prev = cur;
 	}
 }
 
-void Writer::FlushValueChangeDataConstPart_(
+void Writer::flushValueChangeDataConstPart_(
 	const detail::ValueChangeData &vcd, ostream &os, WriterPackType pack_type
 ) {
-	// 0. Setup
-	StreamWriteHelper h(os);
+	// 0. setup
+	StreamwriteHelper h(os);
 
-	// 1. Write Block Header & Global Fields (start/end/mem_req placeholder)
+	// 1. write Block Header & Global Fields (start/end/mem_req placeholder)
 	// FST_BL_VCDATA_DYN_ALIAS2 (8) maps to WaveDataVersion3 in fst_file.h
 	// The positions we cannot fill in yet
 	const auto p_tmp1 = [&]() {
 		streamoff start_pos, memory_usage_pos;
 		h                            //
 			.BeginOffset(start_pos)  // record start position
-			.WriteBlockHeader(BlockType::WaveDataVersion3, 0 /* Length placeholder 0 */)
-			.WriteUInt(vcd.timestamps.front())
-			.WriteUInt(vcd.timestamps.back())
+			.writeBlockHeader(BlockType::WAVE_DATA_VERSION3, 0 /* Length placeholder 0 */)
+			.writeUInt(vcd.timestamps.front())
+			.writeUInt(vcd.timestamps.back())
 			.BeginOffset(memory_usage_pos)  // record memory usage position
-			.WriteUInt<uint64_t>(0);        // placeholder for memory usage
+			.writeUInt<uint64_t>(0);        // placeholder for memory usage
 		return make_pair(start_pos, memory_usage_pos);
 	}();
 	const auto start_pos = p_tmp1.first;
@@ -638,43 +638,43 @@ void Writer::FlushValueChangeDataConstPart_(
 	// 2. Bits Section
 	{
 		vector<uint8_t> bits_data;
-		vcd.WriteInitialBits(bits_data);
+		vcd.writeInitialBits(bits_data);
 		vector<uint8_t> bits_data_compressed;
 		const uint8_t *selected_data;
 		size_t selected_size;
-		if (pack_type == WriterPackType::eNoCompression or bits_data.size() < 32) {
+		if (pack_type == WriterPackType::NO_COMPRESSION or bits_data.size() < 32) {
 			selected_data = bits_data.data();
 			selected_size = bits_data.size();
 		} else {
-			CompressUsingZlib(bits_data, bits_data_compressed, 4);
-			const auto selected_pair = SelectSmaller(bits_data_compressed, bits_data);
+			compressUsingZlib(bits_data, bits_data_compressed, 4);
+			const auto selected_pair = selectSmaller(bits_data_compressed, bits_data);
 			selected_data = selected_pair.first;
 			selected_size = selected_pair.second;
 		}
 
 		h                                            //
-			.WriteLEB128(bits_data.size())           // uncompressed length
-			.WriteLEB128(selected_size)              // compressed length
-			.WriteLEB128(vcd.variable_infos.size())  // bits count
-			.Write(selected_data, selected_size);
+			.writeLEB128(bits_data.size())           // uncompressed length
+			.writeLEB128(selected_size)              // compressed length
+			.writeLEB128(vcd.variable_infos.size())  // bits count
+			.write(selected_data, selected_size);
 	}
 
 	// 3. Waves Section
 	// Note: We need positions for the next section
 	const auto p_tmp2 = [&, pack_type]() {
-		auto wave_data = vcd.ComputeWaveData();
+		auto wave_data = vcd.computeWaveData();
 		const size_t memory_usage =
 			accumulate(wave_data.begin(), wave_data.end(), size_t(0), [](size_t a, const auto &b) {
 				return a + b.size();
 			});
-		auto positions = vcd.UniquifyWaveData(wave_data);
+		auto positions = vcd.uniquifyWaveData(wave_data);
 		h
 			// Note: this is not a typo, I expect we shall write count here.
 			// but the spec indeed write vcd.variable_infos.size(),
 			// which is repeated 1 times in header block, 2 times in valuechange block
-			.WriteLEB128(vcd.variable_infos.size())
-			.WriteUInt(uint8_t('4'));
-		const uint64_t count = detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
+			.writeLEB128(vcd.variable_infos.size())
+			.writeUInt(uint8_t('4'));
+		const uint64_t count = detail::ValueChangeData::encodePositionsAndwriteUniqueWaveData(
 			os, wave_data, positions, pack_type
 		);
 		(void)count;
@@ -686,32 +686,32 @@ void Writer::FlushValueChangeDataConstPart_(
 	// 4. Position Section
 	{
 		const auto pos_begin = os.tellp();
-		vcd.WriteEncodedPositions(positions, os);
+		vcd.writeEncodedPositions(positions, os);
 		const uint64_t pos_size = os.tellp() - pos_begin;
-		h.WriteUInt(pos_size);  // Length comes AFTER data for positions
+		h.writeUInt(pos_size);  // Length comes AFTER data for positions
 	}
 
 	// 5. Time Section
 	{
 		vector<uint8_t> time_data;
-		vcd.WriteTimestamps(time_data);
+		vcd.writeTimestamps(time_data);
 		vector<uint8_t> time_data_compressed;
 		const uint8_t *selected_data;
 		size_t selected_size;
-		if (pack_type == WriterPackType::eNoCompression) {
+		if (pack_type == WriterPackType::NO_COMPRESSION) {
 			selected_data = time_data.data();
 			selected_size = time_data.size();
 		} else {
-			CompressUsingZlib(time_data, time_data_compressed, 9);
-			const auto selected_pair = SelectSmaller(time_data_compressed, time_data);
+			compressUsingZlib(time_data, time_data_compressed, 9);
+			const auto selected_pair = selectSmaller(time_data_compressed, time_data);
 			selected_data = selected_pair.first;
 			selected_size = selected_pair.second;
 		}
 		h                                                 //
-			.Write(selected_data, selected_size)          // time data
-			.WriteUInt(time_data.size())                  // uncompressed len
-			.WriteUInt(selected_size)                     // compressed len
-			.WriteUInt(uint64_t(vcd.timestamps.size()));  // count
+			.write(selected_data, selected_size)          // time data
+			.writeUInt(time_data.size())                  // uncompressed len
+			.writeUInt(selected_size)                     // compressed len
+			.writeUInt(uint64_t(vcd.timestamps.size()));  // count
 	}
 
 	// 6. Patch Block Length and Memory Required
@@ -719,18 +719,18 @@ void Writer::FlushValueChangeDataConstPart_(
 	h  //
 		.BeginOffset(end_pos)
 		// Patch Block Length (after 1 byte Type)
-		.Seek(start_pos + streamoff(1), ios_base::beg)
-		.WriteUInt<uint64_t>(end_pos - start_pos - 1)
+		.seek(start_pos + streamoff(1), ios_base::beg)
+		.writeUInt<uint64_t>(end_pos - start_pos - 1)
 		// Patch Memory Required
-		.Seek(memory_usage_pos, ios_base::beg)
-		.WriteUInt<uint64_t>(memory_usage)
+		.seek(memory_usage_pos, ios_base::beg)
+		.writeUInt<uint64_t>(memory_usage)
 		// Restore position to end
-		.Seek(end_pos, ios_base::beg);
+		.seek(end_pos, ios_base::beg);
 }
 
-namespace {  // Helper functions for CreateEnumTable
+namespace {  // Helper functions for createEnumTable
 
-void AppendEscToString(const string_view_pair in, string &out) {
+void appendEscToString(const string_view_pair in, string &out) {
 	for (size_t i = 0; i < in.second; ++i) {
 		const char c = in.first[i];
 		switch (c) {
@@ -767,7 +767,7 @@ void AppendEscToString(const string_view_pair in, string &out) {
 
 }  // namespace
 
-void Writer::SetAttrBegin(
+void Writer::setAttrBegin(
 	Hierarchy::AttrType attrtype,
 	Hierarchy::AttrSubType subtype,
 	const string_view_pair attrname,
@@ -775,51 +775,51 @@ void Writer::SetAttrBegin(
 ) {
 	FST_CHECK(not hierarchy_finalized_);
 
-	StreamVectorWriteHelper h(hierarchy_buffer_);
+	StreamVectorwriteHelper h(hierarchy_buffer_);
 
-	if (attrtype > Hierarchy::AttrType::eMax) {
-		attrtype = Hierarchy::AttrType::eMisc;
-		subtype = Hierarchy::AttrSubType::eMisc_Unknown;
+	if (attrtype > Hierarchy::AttrType::MAX) {
+		attrtype = Hierarchy::AttrType::MISC;
+		subtype = Hierarchy::AttrSubType::MISC_UNKNOWN;
 	}
 
 	switch (attrtype) {
 		// clang-format off
-	case Hierarchy::AttrType::eArray:
+	case Hierarchy::AttrType::ARRAY:
 		if (
-			subtype < Hierarchy::AttrSubType::eArray_None ||
-			subtype > Hierarchy::AttrSubType::eArray_Sparse
+			subtype < Hierarchy::AttrSubType::ARRAY_NONE ||
+			subtype > Hierarchy::AttrSubType::ARRAY_SPARSE
 		) {
-			subtype = Hierarchy::AttrSubType::eArray_None;
+			subtype = Hierarchy::AttrSubType::ARRAY_NONE;
 		}
 		break;
-	case Hierarchy::AttrType::eEnum:
+	case Hierarchy::AttrType::ENUM:
 		if (
-			subtype < Hierarchy::AttrSubType::eEnum_SvInteger ||
-			subtype > Hierarchy::AttrSubType::eEnum_Time
+			subtype < Hierarchy::AttrSubType::ENUM_SV_INTEGER ||
+			subtype > Hierarchy::AttrSubType::ENUM_TIME
 		) {
-			subtype = Hierarchy::AttrSubType::eEnum_SvInteger;
+			subtype = Hierarchy::AttrSubType::ENUM_SV_INTEGER;
 		}
 		break;
-	case Hierarchy::AttrType::ePack:
+	case Hierarchy::AttrType::PACK:
 		if (
-			subtype < Hierarchy::AttrSubType::ePack_None ||
-			subtype > Hierarchy::AttrSubType::ePack_Sparse
+			subtype < Hierarchy::AttrSubType::PACK_NONE ||
+			subtype > Hierarchy::AttrSubType::PACK_SPARSE
 		) {
-			subtype = Hierarchy::AttrSubType::ePack_None;
+			subtype = Hierarchy::AttrSubType::PACK_NONE;
 		}
 		break;
 	// clang-format on
-	case Hierarchy::AttrType::eMisc:
+	case Hierarchy::AttrType::MISC:
 	default:
 		break;
 	}
 
 	h  //
-		.WriteUIntBE(static_cast<uint8_t>(Hierarchy::ScopeControlType::eGenAttrBegin))
-		.WriteUIntBE(static_cast<uint8_t>(attrtype))
-		.WriteUIntBE(static_cast<uint8_t>(subtype))
-		.WriteString0(attrname)
-		.WriteLEB128(arg);
+		.writeU8Enum(Hierarchy::ScopeControlType::GEN_ATTR_BEGIN)
+		.writeU8Enum(attrtype)
+		.writeU8Enum(subtype)
+		.writeString0(attrname)
+		.writeLEB128(arg);
 }
 
 namespace {
@@ -828,7 +828,7 @@ namespace {
 // Remove this once C++17 is required
 }  // namespace
 
-EnumHandle Writer::CreateEnumTable(
+EnumHandle Writer::createEnumTable(
 	const string_view_pair name,
 	uint32_t min_valbits,
 	const vector<pair<string_view_pair, string_view_pair>> &literal_val_arr
@@ -849,7 +849,7 @@ EnumHandle Writer::CreateEnumTable(
 	for (const auto &p : literal_val_arr) {
 		const auto &literal = p.first;
 		// literal
-		AppendEscToString(literal, attr_str);
+		appendEscToString(literal, attr_str);
 		attr_str += ' ';
 	}
 	for (const auto &p : literal_val_arr) {
@@ -858,15 +858,15 @@ EnumHandle Writer::CreateEnumTable(
 		if (min_valbits > 0 and val.second < min_valbits) {
 			attr_str.insert(attr_str.end(), min_valbits - val.second, '0');
 		}
-		AppendEscToString(val, attr_str);
+		appendEscToString(val, attr_str);
 		attr_str += ' ';
 	}
 	attr_str.pop_back();  // remove last space
 
 	handle = ++enum_count_;
-	SetAttrBegin(
-		Hierarchy::AttrType::eMisc,
-		Hierarchy::AttrSubType::eMisc_EnumTable,
+	setAttrBegin(
+		Hierarchy::AttrType::MISC,
+		Hierarchy::AttrSubType::MISC_ENUMTABLE,
 		make_string_view_pair(attr_str.c_str(), attr_str.size()),
 		handle
 	);
