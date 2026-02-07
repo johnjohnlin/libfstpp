@@ -20,67 +20,67 @@ static const string V2S(vector<uint8_t> &v) {
 
 namespace fst {
 
-// This test focuses on testing the emit functions of writer
+// This test focuses on testing the emit functions of Writer
 // The name of this test is not unique
 // but it is not a problem since Writer_*.test.cpp are individual
 // binary files
 class WriterTest : public ::testing::Test {
 protected:
-	static void WriteHeader(const Header &h, ostream &os) { Writer::WriteHeader_(h, os); }
+	static void writeHeader(const Header &h, ostream &os) { Writer::writeHeader_(h, os); }
 
-	// For testing internal function called by FlushValueChangeData.
+	// For testing internal function called by flushValueChangeData.
 	// We need to verify the internal function behavior
 	// since value change data is too complex to test as a whole.
-	static void FlushValueChangeData_Timestamps(
+	static void flushValueChangeData_Timestamps(
 		vector<uint8_t> &buf, const vector<uint64_t> &timestamps
 	) {
 		detail::ValueChangeData vcd;
 		vcd.timestamps = timestamps;
-		vcd.WriteTimestamps(buf);
+		vcd.writeTimestamps(buf);
 	}
 
-	static vector<int64_t> FlushValueChangeData_ValueChanges_UniquifyWaveData(
+	static vector<int64_t> flushValueChangeData_ValueChanges_UniquifyWaveData(
 		vector<vector<uint8_t>> &data
 	) {
-		return detail::ValueChangeData::UniquifyWaveData(data);
+		return detail::ValueChangeData::uniquifyWaveData(data);
 	}
 
-	static uint64_t FlushValueChangeData_ValueChanges_EncodePositionsAndWriteUniqueWaveData(
+	static uint64_t flushValueChangeData_ValueChanges_EncodePositionsAndwriteUniqueWaveData(
 		ostringstream &os, const vector<vector<uint8_t>> &data, vector<int64_t> &positions
 	) {
-		return detail::ValueChangeData::EncodePositionsAndWriteUniqueWaveData(
-			os, data, positions, WriterPackType::eNoCompression
+		return detail::ValueChangeData::encodePositionsAndwriteUniqueWaveData(
+			os, data, positions, WriterPackType::NO_COMPRESSION
 		);
 	}
 
-	static void FlushValueChangeData_EncodedPositions(
+	static void flushValueChangeData_EncodedPositions(
 		ostringstream &os, const vector<int64_t> &encoded_positions
 	) {
-		detail::ValueChangeData::WriteEncodedPositions(encoded_positions, os);
+		detail::ValueChangeData::writeEncodedPositions(encoded_positions, os);
 	}
 };
 
 ////////////////////////////////////////////////
-// Tests for FlushValueChangeData_ValueChanges_UniquifyWaveData
+// Tests for flushValueChangeData_ValueChanges_UniquifyWaveData
 ////////////////////////////////////////////////
-TEST_F(WriterTest, FlushValueChangeData_ValueChanges_UniquifyWaveData_NoData) {
+TEST_F(WriterTest, flushValueChangeData_ValueChanges_UniquifyWaveData_NoData) {
 	vector<vector<uint8_t>> data;
-	auto positions = FlushValueChangeData_ValueChanges_UniquifyWaveData(data);
+	auto positions = flushValueChangeData_ValueChanges_UniquifyWaveData(data);
 	EXPECT_TRUE(positions.empty());
 }
 
-TEST_F(WriterTest, FlushValueChangeData_ValueChanges_UniquifyWaveData_AllEmpty) {
+TEST_F(WriterTest, flushValueChangeData_ValueChanges_UniquifyWaveData_AllEmpty) {
 	vector<vector<uint8_t>> data = {{}, {}, {}};
-	auto positions = FlushValueChangeData_ValueChanges_UniquifyWaveData(data);
+	auto positions = flushValueChangeData_ValueChanges_UniquifyWaveData(data);
 	EXPECT_EQ(positions.size(), 3);
 	EXPECT_EQ(positions[0], 0);
 	EXPECT_EQ(positions[1], 0);
 	EXPECT_EQ(positions[2], 0);
 }
 
-TEST_F(WriterTest, FlushValueChangeData_ValueChanges_UniquifyWaveData_NoDuplicates) {
+TEST_F(WriterTest, flushValueChangeData_ValueChanges_UniquifyWaveData_NoDuplicates) {
 	vector<vector<uint8_t>> data = {{'a', 'b'}, {'c', 'd'}, {'e', 'f'}};
-	auto positions = FlushValueChangeData_ValueChanges_UniquifyWaveData(data);
+	auto positions = flushValueChangeData_ValueChanges_UniquifyWaveData(data);
 	EXPECT_EQ(positions.size(), 3);
 	EXPECT_EQ(positions[0], 0);
 	EXPECT_EQ(positions[1], 0);
@@ -91,7 +91,7 @@ TEST_F(WriterTest, FlushValueChangeData_ValueChanges_UniquifyWaveData_NoDuplicat
 	EXPECT_EQ(data[2], vector<uint8_t>({'e', 'f'}));
 }
 
-TEST_F(WriterTest, FlushValueChangeData_ValueChanges_UniquifyWaveData_WithDuplicates) {
+TEST_F(WriterTest, flushValueChangeData_ValueChanges_UniquifyWaveData_WithDuplicates) {
 	vector<vector<uint8_t>> data = {
 		{'a', 'b'},
 		{'c', 'd'},
@@ -100,7 +100,7 @@ TEST_F(WriterTest, FlushValueChangeData_ValueChanges_UniquifyWaveData_WithDuplic
 		{'a', 'b'},  // duplicate of [0]
 		{'e', 'f'}   // duplicate of [3]
 	};
-	auto positions = FlushValueChangeData_ValueChanges_UniquifyWaveData(data);
+	auto positions = flushValueChangeData_ValueChanges_UniquifyWaveData(data);
 	EXPECT_EQ(positions.size(), 6);
 	EXPECT_EQ(positions[0], 0);
 	EXPECT_EQ(positions[1], 0);
@@ -119,10 +119,10 @@ TEST_F(WriterTest, FlushValueChangeData_ValueChanges_UniquifyWaveData_WithDuplic
 }
 
 ////////////////////////////////////////////////
-// Tests for FlushValueChangeData_ValueChanges_EncodePositionsAndWriteUniqueWaveData
+// Tests for flushValueChangeData_ValueChanges_EncodePositionsAndwriteUniqueWaveData
 ////////////////////////////////////////////////
 TEST_F(
-	WriterTest, FlushValueChangeData_ValueChanges_EncodePositionsAndWriteUniqueWaveData_Negative
+	WriterTest, flushValueChangeData_ValueChanges_EncodePositionsAndwriteUniqueWaveData_Negative
 ) {
 	vector<vector<uint8_t>> data = {
 		{},               // empty, positions[0] must be 0
@@ -146,7 +146,7 @@ TEST_F(
 		0,
 	};
 	ostringstream os;
-	uint64_t count = FlushValueChangeData_ValueChanges_EncodePositionsAndWriteUniqueWaveData(
+	uint64_t count = flushValueChangeData_ValueChanges_EncodePositionsAndwriteUniqueWaveData(
 		os, data, positions
 	);
 
@@ -171,14 +171,14 @@ TEST_F(
 }
 
 ////////////////////////////////////////////////
-// Test for FlushValueChangeData_EncodedPositions
+// Test for flushValueChangeData_EncodedPositions
 ////////////////////////////////////////////////
-TEST_F(WriterTest, FlushValueChangeData_EncodedPositions) {
+TEST_F(WriterTest, flushValueChangeData_EncodedPositions) {
 	// Consolidated test with boundary values
 	// 0, 1, -1, 127, -127, 128, -128
 	vector<int64_t> positions = {0, 0, 0, 1, -1, 127, -127, 128, -128};
 	ostringstream os;
-	FlushValueChangeData_EncodedPositions(os, positions);
+	flushValueChangeData_EncodedPositions(os, positions);
 
 	// 0    -> length 3 -> (1<<1)|0 = 6   -> [0x06]
 	// 1    -> (1<<1)|1 = 3               -> [0x03]
@@ -200,12 +200,12 @@ TEST_F(WriterTest, FlushValueChangeData_EncodedPositions) {
 	EXPECT_EQ(os.str(), expected);
 }
 
-TEST_F(WriterTest, FlushValueChangeData_6BitsLengthZeros) {
+TEST_F(WriterTest, flushValueChangeData_6BitsLengthZeros) {
 	// Consolidated test with boundary values
 	// 35 zeros
 	vector<int64_t> positions(35, 0);
 	ostringstream os;
-	FlushValueChangeData_EncodedPositions(os, positions);
+	flushValueChangeData_EncodedPositions(os, positions);
 
 	// 0 -> length 35 -> (35<<1)|0 = 70 -> [0x46]
 	// This 0x46 (7-bit) shall be encoded as unsigned LEB128
@@ -216,9 +216,9 @@ TEST_F(WriterTest, FlushValueChangeData_6BitsLengthZeros) {
 }
 
 ////////////////////////////////////////////////
-// Tests for FlushValueChangeData_Timestamps
+// Tests for flushValueChangeData_Timestamps
 ////////////////////////////////////////////////
-TEST_F(WriterTest, FlushValueChangeData_Timestamps) {
+TEST_F(WriterTest, flushValueChangeData_Timestamps) {
 	vector<uint64_t> timestamps;
 	// generate [0, {7'b1}, {7'b1, 7'b2}] ... to 56-bits (Verilog notation)
 	timestamps.reserve(9);
@@ -231,7 +231,7 @@ TEST_F(WriterTest, FlushValueChangeData_Timestamps) {
 	partial_sum(timestamps.begin(), timestamps.end(), timestamps.begin());
 
 	vector<uint8_t> buf;
-	FlushValueChangeData_Timestamps(buf, timestamps);
+	flushValueChangeData_Timestamps(buf, timestamps);
 	// Expected varint encoding of the timestamps
 	// The LEB128 shall looks like 1 12 123 1234 with the 1 becomes 0x81
 	string expected =

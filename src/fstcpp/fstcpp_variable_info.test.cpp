@@ -21,20 +21,20 @@ namespace fst {
 constexpr unsigned kDontCareBitWidth = 1234;
 
 /////////////////////////////
-// WriteInitialBits
+// writeInitialBits
 /////////////////////////////
-TEST(VariableInfoTest, WriteInitialBits_ScalarInt) {
+TEST(VariableInfoTest, writeInitialBits_ScalarInt) {
 	VariableInfo vi(4);
-	vi.EmitValueChange(0, 0b1010);
+	vi.emitValueChange(0, 0b1010);
 	vi.KeepOnlyTheLatestValue();
 	vector<uint8_t> buf;
 	vi.DumpInitialBits(buf);
 	EXPECT_EQ(V2S(buf), "1010");
 }
 
-TEST(VariableInfoTest, WriteInitialBits_LongInt) {
+TEST(VariableInfoTest, writeInitialBits_LongInt) {
 	VariableInfo vi(70);
-	vi.EmitValueChange(0, (1ULL << 63) | 1);
+	vi.emitValueChange(0, (1ULL << 63) | 1);
 	vi.KeepOnlyTheLatestValue();
 	vector<uint8_t> buf;
 	vi.DumpInitialBits(buf);
@@ -43,9 +43,9 @@ TEST(VariableInfoTest, WriteInitialBits_LongInt) {
 	EXPECT_EQ(V2S(buf), expected);
 }
 
-TEST(VariableInfoTest, WriteInitialBits_Double) {
+TEST(VariableInfoTest, writeInitialBits_Double) {
 	VariableInfo vi(kDontCareBitWidth, true);
-	vi.EmitValueChange(0, 0x3ff0000000000000ULL);  // 1.0 in IEEE754
+	vi.emitValueChange(0, 0x3ff0000000000000ULL);  // 1.0 in IEEE754
 	vi.KeepOnlyTheLatestValue();
 	vector<uint8_t> buf;
 	vi.DumpInitialBits(buf);
@@ -58,9 +58,9 @@ TEST(VariableInfoTest, WriteInitialBits_Double) {
 /////////////////////////////
 TEST(VariableInfoTest, DumpValueChange_ScalarInt_1bit_Binary) {
 	VariableInfo vi(1);
-	vi.EmitValueChange(1, 0);
-	vi.EmitValueChange(2, 1);
-	vi.EmitValueChange(3, 0);
+	vi.emitValueChange(1, 0);
+	vi.emitValueChange(2, 1);
+	vi.emitValueChange(3, 0);
 	vector<uint8_t> buf;
 	vi.DumpValueChanges(buf);
 	// Encoding time_index_delta << 2 | (bit << 1) | 0 in binary mode
@@ -72,11 +72,11 @@ TEST(VariableInfoTest, DumpValueChange_ScalarInt_1bit_Binary) {
 
 TEST(VariableInfoTest, DumpValueChange_ScalarInt_2bit_Binary) {
 	VariableInfo vi(2);
-	vi.EmitValueChange(1, 0);
-	vi.EmitValueChange(3, 1);
-	vi.EmitValueChange(5, 2);
-	vi.EmitValueChange(7, 3);
-	vi.EmitValueChange(10, 0);
+	vi.emitValueChange(1, 0);
+	vi.emitValueChange(3, 1);
+	vi.emitValueChange(5, 2);
+	vi.emitValueChange(7, 3);
+	vi.emitValueChange(10, 0);
 	vector<uint8_t> buf;
 	vi.DumpValueChanges(buf);
 	// 1. Varint encoding of (Time_index_delta << 1) | 0
@@ -86,11 +86,11 @@ TEST(VariableInfoTest, DumpValueChange_ScalarInt_2bit_Binary) {
 
 TEST(VariableInfoTest, DumpValueChange_ScalarInt_10bit_Binary) {
 	VariableInfo vi(10);
-	vi.EmitValueChange(1, 0);
-	vi.EmitValueChange(3, 1);
-	vi.EmitValueChange(5, 2);
-	vi.EmitValueChange(7, 4);
-	vi.EmitValueChange(10, 8);
+	vi.emitValueChange(1, 0);
+	vi.emitValueChange(3, 1);
+	vi.emitValueChange(5, 2);
+	vi.emitValueChange(7, 4);
+	vi.emitValueChange(10, 8);
 	vector<uint8_t> buf;
 	vi.DumpValueChanges(buf);
 	// 1. Varint encoding of Time_index_delta << 1 | 1 since it contains only 0 and 1
@@ -107,8 +107,8 @@ TEST(VariableInfoTest, DumpValueChange_ScalarInt_10bit_Binary) {
 
 TEST(VariableInfoTest, DumpValueChange_LongInt_Binary) {
 	VariableInfo vi(68);
-	vi.EmitValueChange(2, 0);
-	vi.EmitValueChange(5, 0x1234567890abcdefULL);
+	vi.emitValueChange(2, 0);
+	vi.emitValueChange(5, 0x1234567890abcdefULL);
 	vector<uint8_t> buf;
 	vi.DumpValueChanges(buf);
 	EXPECT_EQ(
@@ -121,7 +121,7 @@ TEST(VariableInfoTest, DumpValueChange_LongInt_Binary) {
 // LCOV_EXCL_START
 TEST(VariableInfoTest, DISABLED_DumpValueChange_Double_Binary) {
 	VariableInfo vi(kDontCareBitWidth, true);
-	vi.EmitValueChange(0, 0x3ff0000000000000ULL);  // 1.0 in IEEE754
+	vi.emitValueChange(0, 0x3ff0000000000000ULL);  // 1.0 in IEEE754
 	vector<uint8_t> buf;
 	vi.DumpValueChanges(buf);
 	FAIL() << "TODO";
