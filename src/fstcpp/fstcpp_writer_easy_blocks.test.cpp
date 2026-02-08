@@ -392,7 +392,7 @@ TEST_F(WriterTest, writeHeader) {
 
 	// 3. Generate Golden Reference
 	std::vector<uint8_t> expected_vec;
-	StreamVectorwriteHelper h(expected_vec);
+	StreamVectorWriteHelper h(expected_vec);
 
 	// Helper to pad strings with nulls
 	auto write_padded = [&](const string &s, size_t len) {

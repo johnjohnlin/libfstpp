@@ -39,7 +39,7 @@ namespace fst {
 namespace detail {
 
 void BlackoutData::emitDumpActive(uint64_t current_timestamp, bool enable) {
-	StreamVectorwriteHelper h(buffer);
+	StreamVectorWriteHelper h(buffer);
 	h.writeUIntBE<uint8_t>(enable).writeLEB128(current_timestamp - previous_timestamp);
 	++count;
 }
@@ -98,7 +98,7 @@ void Writer::setScope(
 	const string_view_pair scopecomp
 ) {
 	FST_CHECK(not hierarchy_finalized_);
-	StreamVectorwriteHelper h(hierarchy_buffer_);
+	StreamVectorWriteHelper h(hierarchy_buffer_);
 	h  //
 		.writeU8Enum(Hierarchy::ScopeControlType::VCD_SCOPE)
 		.writeU8Enum(scopetype)
@@ -110,7 +110,7 @@ void Writer::setScope(
 void Writer::upscope() {
 	FST_CHECK(not hierarchy_finalized_);
 	// TODO: shall we inline it?
-	StreamVectorwriteHelper h(hierarchy_buffer_);
+	StreamVectorWriteHelper h(hierarchy_buffer_);
 	h.writeU8Enum(Hierarchy::ScopeControlType::VCD_UPSCOPE);
 }
 
@@ -123,7 +123,7 @@ Handle Writer::createVar(
 ) {
 	FST_CHECK(not hierarchy_finalized_);
 	// write hierarchy entry: type, direction, name, length, alias
-	StreamVectorwriteHelper h(hierarchy_buffer_);
+	StreamVectorWriteHelper h(hierarchy_buffer_);
 
 	// determine real/string handling like original C implementation
 	bool is_real = false;
@@ -163,7 +163,7 @@ Handle Writer::createVar(
 
 	// If alias_handle == 0, we must allocate geom/valpos/curval entries and create a new handle
 	if (not is_alias) {
-		StreamVectorwriteHelper g(geometry_buffer_);
+		StreamVectorWriteHelper g(geometry_buffer_);
 		// I don't know why the original C implementation encode bitwidth again
 		const uint32_t geom_len = (bitwidth == 0 ? uint32_t(-1) : is_real ? uint32_t(0) : bitwidth);
 		g.writeLEB128(geom_len);
@@ -288,7 +288,7 @@ void Writer::emitValueChange(Handle handle, const char *val) {
 // File flushing functions
 /////////////////////////////////////////
 void Writer::writeHeader_(const Header &header, ostream &os) {
-	StreamwriteHelper h(os);
+	StreamWriteHelper h(os);
 	static char kDefaultWriterName[sizeof(header.writer)] = "fstcppWriter";
 	const char *writer_name = header.writer[0] == '\0' ? kDefaultWriterName : header.writer;
 
@@ -382,7 +382,7 @@ void Writer::appendGeometry_(ostream &os) {
 	const auto selected_data = selected_pair.first;
 	const auto selected_size = selected_pair.second;
 
-	StreamwriteHelper h(os);
+	StreamWriteHelper h(os);
 	h  //
 		.seek(0, ios_base::end)
 		// 16 is for the uncompressed_size and header_.num_handles
@@ -410,7 +410,7 @@ void Writer::appendHierarchy_(ostream &os) {
 		compressed_bound
 	);
 
-	StreamwriteHelper h(os);
+	StreamWriteHelper h(os);
 	h  //
 		.seek(0, ios_base::end)
 		// +16 is for the uncompressed_size
@@ -426,7 +426,7 @@ void Writer::appendBlackout_(ostream &os) {
 	}
 	const vector<uint8_t> &blackout_data = blackout_data_.buffer;
 	const auto begin_of_blackout_block = os.tellp();
-	StreamwriteHelper h(os);
+	StreamWriteHelper h(os);
 	h  //
 	   // skip the block header
 		.seek(kSharedBlockHeaderSize, ios_base::cur)
@@ -447,7 +447,7 @@ void detail::ValueChangeData::writeInitialBits(vector<uint8_t> &os) const {
 	// We will not compress for now; just generate the raw bytes and print summary to stdout.
 	for (size_t i = 0; i < variable_infos.size(); ++i) {
 		auto &vref = variable_infos[i];
-		vref.DumpInitialBits(os);
+		vref.dumpInitialBits(os);
 	}
 }
 
@@ -455,7 +455,7 @@ vector<vector<uint8_t>> detail::ValueChangeData::computeWaveData() const {
 	const size_t N = variable_infos.size();
 	vector<vector<uint8_t>> data(N);
 	for (size_t i = 0; i < N; ++i) {
-		variable_infos[i].DumpValueChanges(data[i]);
+		variable_infos[i].dumpValueChanges(data[i]);
 	}
 	return data;
 }
@@ -511,7 +511,7 @@ uint64_t detail::ValueChangeData::encodePositionsAndwriteUniqueWaveData(
 	//  unchanged
 	//  - > 0: The size (in bytes) of the wave data block for *previous* variable,
 	//         the previous block size of the first block is 1 (required by FST spec).
-	StreamwriteHelper h(os);
+	StreamWriteHelper h(os);
 	int64_t previous_size = 1;
 	uint64_t written_count = 0;
 	vector<uint8_t> compressed_data;
@@ -555,7 +555,7 @@ void detail::ValueChangeData::writeEncodedPositions(
 	const vector<int64_t> &encoded_positions, ostream &os
 ) {
 	// Encode positions with the specified run/varint rules into a varint buffer.
-	StreamwriteHelper h(os);
+	StreamWriteHelper h(os);
 
 	size_t i = 0;
 	const size_t n = encoded_positions.size();
@@ -602,7 +602,7 @@ void detail::ValueChangeData::writeEncodedPositions(
 
 void detail::ValueChangeData::writeTimestamps(vector<uint8_t> &os) const {
 	// Build LEB128-encoded delta stream (first delta is timestamp[0] - 0)
-	StreamVectorwriteHelper h(os);
+	StreamVectorWriteHelper h(os);
 	uint64_t prev = 0;
 	for (size_t i = 0; i < timestamps.size(); ++i) {
 		const uint64_t cur = timestamps[i];
@@ -616,7 +616,7 @@ void Writer::flushValueChangeDataConstPart_(
 	const detail::ValueChangeData &vcd, ostream &os, WriterPackType pack_type
 ) {
 	// 0. setup
-	StreamwriteHelper h(os);
+	StreamWriteHelper h(os);
 
 	// 1. write Block Header & Global Fields (start/end/mem_req placeholder)
 	// FST_BL_VCDATA_DYN_ALIAS2 (8) maps to WaveDataVersion3 in fst_file.h
@@ -775,7 +775,7 @@ void Writer::setAttrBegin(
 ) {
 	FST_CHECK(not hierarchy_finalized_);
 
-	StreamVectorwriteHelper h(hierarchy_buffer_);
+	StreamVectorWriteHelper h(hierarchy_buffer_);
 
 	if (attrtype > Hierarchy::AttrType::MAX) {
 		attrtype = Hierarchy::AttrType::MISC;
