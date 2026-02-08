@@ -296,7 +296,7 @@ public:
 		);
 	}
 	// Flush value change data
-	inline void FlushValueChangeData() { flush_pending_ = true; }
+	inline void flushValueChangeData() { flush_pending_ = true; }
 
 #if __cplusplus >= 201703L
 	// All APIs with string_view_pair --> define a
