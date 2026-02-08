@@ -107,8 +107,8 @@ public:
 		std::copy_n(data_ptr_ + size() - last_written_bytes_, last_written_bytes_, data_ptr_);
 		size(last_written_bytes_);
 	}
-	void DumpInitialBits(std::vector<uint8_t> &buf) const;
-	void DumpValueChanges(std::vector<uint8_t> &buf) const;
+	void dumpInitialBits(std::vector<uint8_t> &buf) const;
+	void dumpValueChanges(std::vector<uint8_t> &buf) const;
 
 	// We only need to make this class compatible with vector
 	// delete copy constructor and assignment operator
@@ -131,11 +131,11 @@ namespace detail {
 
 constexpr size_t kEmitTimeIndexAndEncodingSize = sizeof(uint64_t) + sizeof(fst::EncodingType);
 
-// emitReaderHelper and emitWriterHelper are very optimized for emit functions
+// EmitReaderHelper and EmitWriterHelper are very optimized for emit functions
 // User must ensure the pointer points to the valid memory region
-struct emitReaderHelper {
+struct EmitReaderHelper {
 	const uint8_t *ptr;
-	emitReaderHelper(const uint8_t *ptr_) : ptr(ptr_) {}
+	EmitReaderHelper(const uint8_t *ptr_) : ptr(ptr_) {}
 
 	std::pair<uint64_t, fst::EncodingType> ReadTimeIndexAndEncoding() {
 		const auto time_index = Read<uint64_t>();
@@ -163,19 +163,19 @@ struct emitReaderHelper {
 	}
 };
 
-struct emitWriterHelper {
+struct EmitWriterHelper {
 	uint8_t *ptr;
 
-	emitWriterHelper(uint8_t *ptr_) : ptr(ptr_) {}
+	EmitWriterHelper(uint8_t *ptr_) : ptr(ptr_) {}
 
-	emitWriterHelper &writeTimeIndexAndEncoding(uint64_t time_index, fst::EncodingType encoding) {
+	EmitWriterHelper &writeTimeIndexAndEncoding(uint64_t time_index, fst::EncodingType encoding) {
 		write(time_index);
 		write(encoding);
 		return *this;
 	}
 
 	template <typename T>
-	emitWriterHelper &write(T u) {
+	EmitWriterHelper &write(T u) {
 		const size_t s = sizeof(u);
 		std::memcpy(ptr, &u, s);
 		ptr += s;
@@ -183,7 +183,7 @@ struct emitWriterHelper {
 	}
 
 	template <typename T>
-	emitWriterHelper &fill(T u, size_t count) {
+	EmitWriterHelper &fill(T u, size_t count) {
 		for (size_t i = 0; i < count; ++i) {
 			std::memcpy(ptr, &u, sizeof(u));
 			ptr += sizeof(u);
@@ -192,7 +192,7 @@ struct emitWriterHelper {
 	}
 
 	template <typename T>
-	emitWriterHelper &write(T *u, size_t size) {
+	EmitWriterHelper &write(T *u, size_t size) {
 		for (size_t i = 0; i < size; ++i) {
 			std::memcpy(ptr, u + i, sizeof(T));
 			ptr += sizeof(T);
@@ -215,7 +215,7 @@ private:
 
 	// first: its pointer to the first byte of the value
 	// second: size of the time index+encoding type+value
-	inline std::pair<emitWriterHelper, size_t> emitValueChangeCommonPart(
+	inline std::pair<EmitWriterHelper, size_t> emitValueChangeCommonPart(
 		uint64_t current_time_index, EncodingType encoding
 	) {
 		if (current_time_index + 1 == 0) {
@@ -226,7 +226,7 @@ private:
 		const size_t old_size = info.size();
 		info.add_size(added_size);
 
-		emitWriterHelper wh(info.data_ptr() + old_size);
+		EmitWriterHelper wh(info.data_ptr() + old_size);
 		wh.writeTimeIndexAndEncoding(current_time_index, encoding);
 		return std::make_pair(wh, added_size);
 	}
@@ -235,7 +235,7 @@ public:
 	void construct() {
 		const size_t needed = addedSize(EncodingType::BINARY);
 		info.resize(needed);
-		emitWriterHelper wh(info.data_ptr());
+		EmitWriterHelper wh(info.data_ptr());
 		wh.writeTimeIndexAndEncoding(0, EncodingType::BINARY).write<double>(0.0);
 	}
 
@@ -258,18 +258,18 @@ public:
 		throw std::runtime_error("emitValueChange(uint64_t*) not supported for Double");
 	}
 
-	void DumpInitialBits(std::vector<uint8_t> &buf) const {
+	void dumpInitialBits(std::vector<uint8_t> &buf) const {
 		FST_DCHECK_GT(info.size(), kEmitTimeIndexAndEncodingSize);
-		emitReaderHelper rh(info.data_ptr());
-		StreamVectorwriteHelper wh(buf);
+		EmitReaderHelper rh(info.data_ptr());
+		StreamVectorWriteHelper wh(buf);
 		(void)rh.ReadTimeIndexAndEncoding();
 		auto v = rh.Read<double>();
 		wh.write<double>(v);
 	}
 
-	void DumpValueChanges(std::vector<uint8_t> &buf) const {
-		StreamVectorwriteHelper wh(buf);
-		emitReaderHelper rh(info.data_ptr());
+	void dumpValueChanges(std::vector<uint8_t> &buf) const {
+		StreamVectorWriteHelper wh(buf);
+		EmitReaderHelper rh(info.data_ptr());
 		const uint8_t *tail = info.data_ptr() + info.size();
 
 		bool first = true;
@@ -282,7 +282,7 @@ public:
 			const auto enc = rh.Read<EncodingType>();
 			const auto num_byte = sizeof(double);
 			if (first) {
-				// Note: [0] is initial value, which is already dumped in DumpInitialBits()
+				// Note: [0] is initial value, which is already dumped in dumpInitialBits()
 				first = false;
 			} else {
 				FST_CHECK(enc == EncodingType::BINARY);
@@ -310,7 +310,7 @@ private:
 	// The returning address points to the first byte of the value
 	// .first: its pointer to the first byte of the value
 	// .second: size of the time index+encoding type+value
-	inline std::pair<emitWriterHelper, size_t> emitValueChangeCommonPart(
+	inline std::pair<EmitWriterHelper, size_t> emitValueChangeCommonPart(
 		uint64_t current_time_index, EncodingType encoding
 	) {
 		if (current_time_index + 1 == 0) {
@@ -321,7 +321,7 @@ private:
 		const size_t added_size = addedSize(encoding);
 		const size_t old_size = info.size();
 		info.add_size(added_size);
-		emitWriterHelper wh(info.data_ptr() + old_size);
+		EmitWriterHelper wh(info.data_ptr() + old_size);
 		wh.writeTimeIndexAndEncoding(current_time_index, encoding);
 		return std::make_pair(wh, added_size);
 	}
@@ -329,7 +329,7 @@ private:
 public:
 	void construct() {
 		info.resize(addedSize(EncodingType::VERILOG));
-		emitWriterHelper wh(info.data_ptr());
+		EmitWriterHelper wh(info.data_ptr());
 		wh.writeTimeIndexAndEncoding(0, EncodingType::VERILOG).write(T(0)).write(T(-1));
 	}
 
@@ -375,10 +375,10 @@ public:
 		return added_size;
 	}
 
-	void DumpInitialBits(std::vector<uint8_t> &buf) const {
+	void dumpInitialBits(std::vector<uint8_t> &buf) const {
 		// FST requires initial bits present
 		FST_DCHECK_GT(info.size(), kEmitTimeIndexAndEncodingSize);
-		emitReaderHelper rh(info.data_ptr());
+		EmitReaderHelper rh(info.data_ptr());
 		const auto time_index_enc = rh.ReadTimeIndexAndEncoding();
 		const auto enc = time_index_enc.second;
 		const auto bitwidth = info.bitwidth();
@@ -424,9 +424,9 @@ public:
 		// LCOV_EXCL_STOP
 	}
 
-	void DumpValueChanges(std::vector<uint8_t> &buf) const {
-		StreamVectorwriteHelper h(buf);
-		emitReaderHelper rh(info.data_ptr());
+	void dumpValueChanges(std::vector<uint8_t> &buf) const {
+		StreamVectorWriteHelper h(buf);
+		EmitReaderHelper rh(info.data_ptr());
 		const uint8_t *tail = info.data_ptr() + info.size();
 		const auto bitwidth = info.bitwidth();
 		bool first = true;
@@ -442,7 +442,7 @@ public:
 				const auto num_element = BitPerEncodedBit(enc);
 				const auto num_byte = num_element * sizeof(T);
 				if (first) {
-					// Note: [0] is initial value, which is already dumped in DumpInitialBits()
+					// Note: [0] is initial value, which is already dumped in dumpInitialBits()
 					first = false;
 				} else {
 					unsigned val = 0;
@@ -515,7 +515,7 @@ private:
 		);
 	}
 
-	inline std::pair<emitWriterHelper, size_t> emitValueChangeCommonPart(
+	inline std::pair<EmitWriterHelper, size_t> emitValueChangeCommonPart(
 		uint64_t current_time_index, EncodingType encoding
 	) {
 		if (current_time_index + 1 == 0) {
@@ -525,7 +525,7 @@ private:
 		const size_t old_size = info.size();
 		info.add_size(added_size);
 
-		emitWriterHelper wh(info.data_ptr() + old_size);
+		EmitWriterHelper wh(info.data_ptr() + old_size);
 		wh.writeTimeIndexAndEncoding(current_time_index, encoding);
 		return std::make_pair(wh, added_size);
 	}
@@ -534,7 +534,7 @@ public:
 	void construct() {
 		const size_t nw = num_words();
 		info.resize(addedSize(EncodingType::VERILOG));
-		emitWriterHelper wh(info.data_ptr());
+		EmitWriterHelper wh(info.data_ptr());
 		wh  //
 			.writeTimeIndexAndEncoding(0, EncodingType::VERILOG)
 			.fill(uint64_t(0), nw)
@@ -587,9 +587,9 @@ public:
 		return wh_added.second;
 	}
 
-	void DumpInitialBits(std::vector<uint8_t> &buf) const {
+	void dumpInitialBits(std::vector<uint8_t> &buf) const {
 		FST_DCHECK_GT(info.size(), kEmitTimeIndexAndEncodingSize);
-		emitReaderHelper rh(info.data_ptr());
+		EmitReaderHelper rh(info.data_ptr());
 		const auto time_index_enc = rh.ReadTimeIndexAndEncoding();
 		const auto enc = time_index_enc.second;
 		const unsigned nw = num_words();
@@ -646,9 +646,9 @@ public:
 		}
 	}
 
-	void DumpValueChanges(std::vector<uint8_t> &buf) const {
-		StreamVectorwriteHelper h(buf);
-		emitReaderHelper rh(info.data_ptr());
+	void dumpValueChanges(std::vector<uint8_t> &buf) const {
+		StreamVectorWriteHelper h(buf);
+		EmitReaderHelper rh(info.data_ptr());
 		const uint8_t *tail = info.data_ptr() + info.size();
 		const unsigned nw = num_words();
 		const unsigned bitwidth = info.bitwidth();  // Local copy for lambda capture/usage if needed
@@ -664,7 +664,7 @@ public:
 			const auto num_element = BitPerEncodedBit(enc);
 			const auto num_byte = num_element * nw * sizeof(uint64_t);
 			if (first) {
-				// Note: [0] is initial value, which is already dumped in DumpInitialBits()
+				// Note: [0] is initial value, which is already dumped in dumpInitialBits()
 				first = false;
 			} else {
 				FST_CHECK(enc == EncodingType::BINARY);  // TODO
@@ -767,12 +767,12 @@ inline uint32_t VariableInfo::emitValueChange(
 	return last_written_bytes_;
 }
 
-inline void VariableInfo::DumpInitialBits(std::vector<uint8_t> &buf) const {
-	DispatchHelper([&](auto obj) { obj.DumpInitialBits(buf); });
+inline void VariableInfo::dumpInitialBits(std::vector<uint8_t> &buf) const {
+	DispatchHelper([&](auto obj) { obj.dumpInitialBits(buf); });
 }
 
-inline void VariableInfo::DumpValueChanges(std::vector<uint8_t> &buf) const {
-	DispatchHelper([&](auto obj) { obj.DumpValueChanges(buf); });
+inline void VariableInfo::dumpValueChanges(std::vector<uint8_t> &buf) const {
+	DispatchHelper([&](auto obj) { obj.dumpValueChanges(buf); });
 }
 
 }  // namespace fst
