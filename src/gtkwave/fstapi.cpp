@@ -54,7 +54,7 @@ void fstWriterClose(fstWriterContext *ctx) {
 
 void fstWriterFlushContext(fstWriterContext *ctx) {
 	if (not ctx) return;
-	ctx->writer.FlushValueChangeData();
+	ctx->writer.flushValueChangeData();
 }
 
 // Header related

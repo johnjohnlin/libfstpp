@@ -507,7 +507,7 @@ uint64_t detail::ValueChangeData::encodePositionsAndwriteUniqueWaveData(
 ) {
 	// After this function, positions[i] is:
 	//  - = 0: If variable i has no wave data
-	//  - < 0: The negative value from FlushValueChangeData_ValueChanges_UniquifyWaveData_,
+	//  - < 0: The negative value from flushValueChangeData_ValueChanges_UniquifyWaveData_,
 	//  unchanged
 	//  - > 0: The size (in bytes) of the wave data block for *previous* variable,
 	//         the previous block size of the first block is 1 (required by FST spec).
@@ -565,7 +565,7 @@ void detail::ValueChangeData::writeEncodedPositions(
 	int64_t prev_negative = 1;
 
 	// Please refer to the comments in
-	// FlushValueChangeData_ValueChanges_EncodePositionsAndwriteWaveData_() for the encoding rules
+	// flushValueChangeData_ValueChanges_EncodePositionsAndwriteWaveData_() for the encoding rules
 	// of positions.
 	while (i < n) {
 		if (encoded_positions[i] == 0) {
