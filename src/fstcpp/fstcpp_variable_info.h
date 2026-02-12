@@ -44,7 +44,7 @@ class VariableInfo final {
 	//   - 6b capacity_log2 (offset by -kCapacityBaseShift)
 	//   - 12b last_written_bytes
 	//     (TODO: can be calculated from only EncodingType, which is only 2b)
-	//   - 12b bitwidth
+	//   - 12b bitwidth-1
 	//   - 1b is_real
 	uint64_t misc = 0;
 	// end of data members
@@ -57,7 +57,7 @@ class VariableInfo final {
 	void reallocate(uint64_t new_size);
 
 	inline void BuildMisc(uint32_t bitwidth_, bool is_real_) {
-		misc = bitwidth_;
+		misc = bitwidth_ - 1;
 		misc <<= 1;
 		misc |= is_real_;
 	}
@@ -66,7 +66,7 @@ class VariableInfo final {
 
 public:
 	inline uint64_t size() const { return misc >> 33; }
-	inline uint16_t bitwidth() const { return (misc >> 1) & 0xfff; }
+	inline uint16_t bitwidth() const { return ((misc >> 1) & 0xfff) + 1; }
 	inline bool is_real() const { return misc & 1; }
 	inline void last_written_bytes(uint64_t last_written_bytes_) {
 		const uint64_t mask = ~(uint64_t(0xfff) << 13);
