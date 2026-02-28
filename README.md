@@ -1,3 +1,8 @@
+
+# """"" This repo is archived and now hosted by [GtkWave](https://github.com/gtkwave/libfstwriter). """""
+# """"" This repo is archived and now hosted by [GtkWave](https://github.com/gtkwave/libfstwriter). """""
+# """"" This repo is archived and now hosted by [GtkWave](https://github.com/gtkwave/libfstwriter). """""
+
 # High-Performance FST Waveform Writer
 
 A C++14 re-implementation of the **Fast Signal Trace (FST)** waveform writer, originally designed for [GtkWave](http://gtkwave.sourceforge.net/).
